@@ -242,7 +242,7 @@ cmd_snip() {
   else
     # File output: check for existing file and confirm
     [[ -f "$output" ]] && { u.confirm "File exists: $output. Overwrite?" || { u.info "Cancelled"; exit 0; }; }
-  
+
     printf '%s\n' "$section_content" > "$output" || { u.error "failed to write to $output"; exit $_E; }
     u.info "extracted section '$section' to: $output"
   fi
@@ -281,7 +281,7 @@ cmd_update() {
     local detected_id detected_template
     detected_id=$(detect_template_id "$target_file")
     detected_template="${detected_id%-*}"
-  
+
     if [[ "$detected_template" != "$template" ]]; then
       u.warn "Template mismatch! Script created with '$detected_template' but forcing '$template'"
       u.warn "This may introduce breaking changes to your script"
@@ -550,7 +550,7 @@ collect_wizard_variables() {
     local template_options=$(u.array_join "," "${_TEMPLATES[@]}")
     local template_choice=$(u.readline "Template ($template_options) - [$_TEMPLATE_DFLT]:")
     template_ref="${template_choice:-$_TEMPLATE_DFLT}"
-  
+
     # Validate template choice
     local valid_template=false
     local tmpl
@@ -600,20 +600,20 @@ collect_wizard_variables() {
   if ! has_variable "license" "${vars_ref[@]}"; then
     local config_dir
     config_dir=$(get_config_dir)
-  
+
     # Get available licenses (Bash 3.2 compatible)
     local license_array=()
     local license_line
     while IFS= read -r license_line; do
       [[ -n "$license_line" ]] && license_array+=("$license_line")
     done < <(get_available_licenses "$config_dir" 2>/dev/null)
-  
+
     if [[ ${#license_array[@]} -gt 0 ]]; then
       local license_options=$(u.array_join "," "${license_array[@]}")
       local default_license="${license_array[0]}"
       local license=$(u.readline "License ($license_options) - [$default_license]:")
       license="${license:-$default_license}"
-    
+
       # Validate license choice
       local valid_license=false
       local lic
@@ -621,7 +621,7 @@ collect_wizard_variables() {
         [[ "$license" == "$lic" ]] && { valid_license=true; break; }
       done
       [[ "$valid_license" == true ]] || { u.error "invalid license: '$license' (available: $license_options)"; exit $_E_USG; }
-    
+
       vars_ref+=("license=$license")
     else
       u.error "no licenses available - run '$__APP upgrade' to download license templates"
@@ -708,7 +708,7 @@ generate_project() {
         break
       fi
     done
-  
+
     if [[ -n "$license_code" ]]; then
       # Get license content (exit with error if fails)
       local config_dir
@@ -718,7 +718,7 @@ generate_project() {
         u.error "run '$__APP upgrade' to ensure license templates are available"
         exit $_E_NF
       fi
-    
+
       # Set license display name
       local license_file
       license_file=$(get_license_file "$license_code" "$config_dir")
@@ -859,15 +859,15 @@ download_manifest() {
   while IFS=':' read -r file_type file_path; do
     [[ "$file_type" =~ ^[[:space:]]*# ]] && continue  # Skip comments
     [[ -z "$file_type" || -z "$file_path" ]] && continue  # Skip empty lines
-  
+
     case "$file_type" in
       template|license)
         local target_file="$config_dir/$file_path"
         local source_url="$_ZAP_REMOTE/$file_path"
-      
+
         # Create directory if needed
         mkdir -p "$(dirname "$target_file")"
-      
+
         u.info "downloading: $file_path"
         download_file "$source_url" "$target_file" || { u.error "failed to download: $file_path"; return $_E_NC; }
         ;;
@@ -956,7 +956,7 @@ apply_variables() {
     if [[ "$assignment" == *=* ]]; then
       var="${assignment%%=*}"
       value="${assignment#*=}"
-    
+
       # Use bash parameter expansion for multiline content (more reliable)
       if [[ "$value" == *$'\n'* ]]; then
         # Use bash parameter expansion to replace all occurrences
@@ -998,7 +998,7 @@ generate_script() {
     u.debug "processing section: $section"
     # Extract section from template
     section_content=$(extract_section "$template_file" "$section")
-  
+
     if [[ -n "$section_content" ]]; then
       # Apply variables to section content
       enriched_content=$(apply_variables "$section_content" "${variables[@]}")
