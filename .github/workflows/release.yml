@@ -5,9 +5,6 @@ on:
     tags:
       - 'v*'  # Trigger on any tag starting with 'v'
 
-env:
-  ENABLE_MACOS_TESTS: false  # Set to true to re-enable macOS tests
-
 jobs:
   lint:
     name: Lint
@@ -29,6 +26,7 @@ jobs:
     name: Test
     runs-on: ${{ matrix.os }}
     timeout-minutes: 5
+    if: matrix.os != 'macos-latest'  # Temporarily disable macOS tests
     strategy:
       matrix:
         include:
@@ -38,9 +36,6 @@ jobs:
           - os: macos-latest
             bash-version: "3.2+"
             description: "macOS (Bash 3.2+)"
-            enabled: ${{ env.ENABLE_MACOS_TESTS }}
-        exclude:
-          - enabled: false
 
     steps:
       - name: Checkout
