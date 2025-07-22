@@ -1,0 +1,151 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on any tag starting with 'v'
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Run linting
+        run: make lint
+
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            bash-version: "4+"
+            description: "Ubuntu (Bash 4+)"
+          - os: macos-latest
+            bash-version: "3.2+"
+            description: "macOS (Bash 3.2+)"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install shellcheck
+
+      - name: Show bash version
+        run: |
+          echo "Platform: ${{ matrix.description }}"
+          bash --version | head -1
+
+      - name: Verify bash compatibility (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          bash_version=$(bash --version | head -1 | grep -o '[0-9]\+\.[0-9]\+')
+          echo "Detected bash version: $bash_version"
+          if [[ "$bash_version" < "3.2" ]]; then
+            echo "ERROR: Bash version too old: $bash_version"
+            exit 1
+          fi
+          echo "✅ Bash $bash_version meets minimum requirement (3.2+)"
+
+      - name: Check dependencies
+        run: make check-deps
+
+      - name: Verify version consistency
+        run: |
+          echo "Pre-release version status:"
+          make version
+
+      - name: Run tests
+        run: make test
+
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [lint, test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          VERSION_NUMBER=${VERSION#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version_number=$VERSION_NUMBER" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Verify version consistency
+        run: |
+          TAG_VERSION="${{ steps.version.outputs.version_number }}"
+          FILE_VERSION=$(cat version.txt 2>/dev/null || echo "")
+          
+          if [[ "$FILE_VERSION" != "$TAG_VERSION" ]]; then
+            echo "❌ Version mismatch!"
+            echo "  Tag version: $TAG_VERSION"
+            echo "  File version: $FILE_VERSION"
+            echo ""
+            echo "Version status:"
+            make version
+            exit 1
+          fi
+          
+          echo "✅ Version consistency verified: $TAG_VERSION"
+          echo ""
+          echo "Complete version status:"
+          make version
+
+      - name: Create release archive
+        run: |
+          VERSION_NUMBER="${{ steps.version.outputs.version_number }}"
+          make create-archive VERSION="$VERSION_NUMBER"
+
+      - name: Set release assets
+        id: assets
+        run: |
+          VERSION_NUMBER="${{ steps.version.outputs.version_number }}"
+          ARCHIVE_NAME="zap-sh-${VERSION_NUMBER}.zip"
+          echo "archive=$ARCHIVE_NAME" >> $GITHUB_OUTPUT
+          echo "Archive: $ARCHIVE_NAME"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: zap-sh ${{ steps.version.outputs.version }}
+          body_path: RELEASE_NOTES.md
+          files: ${{ steps.assets.outputs.archive }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release summary
+        run: |
+          echo "✅ Release created successfully"
+          echo "Version: ${{ steps.version.outputs.version }}"
+          echo "Archive: ${{ steps.assets.outputs.archive }}"
+          echo ""
+          echo "Final version status:"
+          make version

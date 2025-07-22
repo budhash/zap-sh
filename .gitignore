@@ -1,0 +1,60 @@
+# Logs
+*.log
+*.log.*
+
+# Temporary files
+*.tmp
+*.temp
+*~
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test artifacts (temporary test output only)
+*_test_output*
+.test_*
+test_output/
+*.test.log
+
+# Runtime artifacts
+*.pid
+*.lock
+
+# Generated scripts (for testing)
+generated_*
+test-output/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+
+# Backup files
+*.bak
+*.backup
+*.orig
+
+# Personal/local config
+.env
+.env.local
+config.local.*
+
+# Coverage reports
+coverage/
+*.coverage
+
+# Shell history
+.bash_history
+.zsh_history
+temp
+.prompt
+.prompt

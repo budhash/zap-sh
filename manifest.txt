@@ -1,0 +1,8 @@
+# zap-sh manifest  
+version:version.txt
+binary:zap-sh
+template:templates/basic.sh
+template:templates/enhanced.sh
+license:templates/licenses/MIT.txt
+license:templates/licenses/Apache.txt  
+license:templates/licenses/GPL.txt

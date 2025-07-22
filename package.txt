@@ -1,0 +1,11 @@
+# package.txt - Define what goes in the release
+# Format: type:relative/path
+
+# Core files
+file:zap-sh
+file:README.md
+file:LICENSE
+file:version.txt
+
+# Template directories
+dir:templates

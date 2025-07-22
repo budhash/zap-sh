@@ -1,0 +1,1282 @@
+#!/usr/bin/env bash
+##( header
+# --------------------------------------------------------------------
+# zap - Lightning-fast bash script generator
+# 
+# Zap eliminates bash script boilerplate with smart templates, auto-generation, and reusable components
+# --------------------------------------------------------------------
+# AUTHOR:  Copyright (C) 2025 Budha <budhash@gmail.com>
+# VERSION: 0.7.0
+# LICENSE: MIT
+# --------------------------------------------------------------------
+##) header
+
+##( configuration
+set -eEuo pipefail; IFS=$'\n\t'  # fail fast, secure IFS
+##) configuration
+
+##( metadata
+readonly __ID="basic-1.0.0"
+readonly __APP="$(basename "${BASH_SOURCE[0]:-}")"
+readonly __APPFILE="${BASH_SOURCE[0]}"
+readonly __APPDIR="$(s="${BASH_SOURCE[0]}"; while [[ -h "$s" ]]; do 
+  d="$(cd -P "$(dirname "$s")" && pwd)"; s="$(readlink "$s")"; [[ "$s" != /* ]] && s="$d/$s"; done; cd -P "$(dirname "$s")" && pwd)"
+__DBG=${DEBUG:-false}
+##) metadata
+
+##( globals
+
+##[ colors
+_RST=$'\033[0m' _GRN=$'\033[0;32m' _YLW=$'\033[0;33m' _RED=$'\033[0;31m' _BLU=$'\033[0;34m'
+[[ -n "${NO_COLOR:-}" || ! -t 1 ]] && _RST='' _GRN='' _YLW='' _RED='' _BLU=''
+##] colors
+
+##[ error
+# general failure / bad usage / dependency not found / unsupported OS / not found / permission error / not connected
+readonly _E=1 _E_USG=2 _E_DEP=3 _E_OS=4 _E_NF=5 _E_NP=6 _E_NC=7  
+##] error
+
+##) globals
+
+##( helpers
+
+##[ system
+u.os() { case "${OSTYPE:-}" in darwin*) echo mac;; linux*) echo linux;; *) echo unknown;; esac; }
+u.die() { u.error "$@"; exit $_E; }
+u.require() { 
+  local tool="${1:-}"
+  [[ -z "$tool" ]] && { u.error "missing dependency name"; exit $_E_DEP; }
+  if [[ "$tool" == /* ]] || [[ "$tool" == ./* ]] || [[ "$tool" == ../* ]]; then
+    [[ -x "$tool" ]] || { u.error "missing dependency: $tool"; exit $_E_DEP; } # Absolute or relative path - test directly
+  else
+    command -v "$tool" >/dev/null || { u.error "missing dependency: $tool"; exit $_E_DEP; }
+  fi
+}
+##] system
+
+##[ logging
+u.log() {
+  local _l="info " _co="$_GRN"
+  [[ "${1:-}" == "-l" ]] && { _l="${2:-info}"; shift 2; }
+  case "$_l" in warn) _co="$_YLW";; error) _co="$_RED";; debug) _co="$_BLU"; [[ "$__DBG" != true ]] && return;; esac
+  printf "${_co}[%s]${_RST} %s\n" "$_l" "$*" >&2
+  return 0
+}
+u.info() { u.log -l "info " "$@"; }
+u.warn() { u.log -l "warn " "$@"; }
+u.error() { u.log -l "error" "$@"; }
+u.debug() { u.log -l "debug" "$@"; }
+##] logging
+
+##) helpers
+
+##( app
+
+##[ config
+readonly __NAME=zap-sh
+readonly __DEV_MODE=${ZAP_DEV:-true}
+readonly __OS=(mac linux)
+readonly __APP_DEPS=(find curl)
+readonly _ZAP_REMOTE="${ZAP_REMOTE:-https://raw.githubusercontent.com/budhash/$__NAME/main}"
+readonly _CURL_TIMEOUT_CONNECT=10
+readonly _CURL_TIMEOUT_MAX=30
+##] config
+
+##[ constants
+readonly _SECTIONS=("header" "configuration" "metadata" "globals" "helpers" "app" "core")
+readonly _SECTIONS_UPDATE=("configuration" "metadata" "globals" "helpers" "core")
+readonly _SECTIONS_PRESERVE=("header" "app")
+readonly _TEMPLATES=("basic" "enhanced")
+readonly _TEMPLATE_DFLT="basic"
+readonly _ZAP_REMOTE_MANIFEST="manifest.txt"
+readonly _ZAP_REMOTE_VERSION="version.txt"
+##] constants
+
+##[ main
+_main() {
+  local _opt _help=false _version=false
+  local OPTIND=1 OPTERR=1
+  
+  while getopts "hv" _opt; do
+    case $_opt in
+      h) _help=true;;
+      v) _version=true;;
+      \?) u.error "unknown option: -${OPTARG:-}"; echo >&2; _help; exit $_E_USG ;;
+    esac
+  done
+  shift $((OPTIND-1))
+
+  # Handle global help/version
+  [[ "$_help" == true ]] && { _help; exit 0; }
+  [[ "$_version" == true ]] && { _version; exit 0; }
+  
+  # Get command (with safe fallback)
+  local cmd="${1:-}"
+  if [[ -z "$cmd" ]]; then
+    u.error "command required"
+    echo >&2  # Add blank line  
+    _help
+    exit $_E_USG
+  fi
+  
+  # Dispatch to command handlers
+  case "$cmd" in
+    init)    shift; cmd_init "$@"    ;;
+    snip)    shift; cmd_snip "$@"    ;;
+    update)  shift; cmd_update "$@"  ;;
+    upgrade) shift; cmd_upgrade "$@" ;;
+    *) u.error "unknown command: $cmd"; echo >&2; _help; exit $_E_USG ;;
+  esac
+}
+##] main
+
+##[ commands
+# init command
+cmd_init() {
+  u.debug "init command called with args: $*"
+  
+  # Initialize
+  local wizard=false template="$_TEMPLATE_DFLT" project=""
+  local user_variables=()
+  
+  # Single-pass parsing to handle mixed argument order
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -w)
+        wizard=true
+        shift
+        ;;
+      -t)
+        [[ $# -gt 1 ]] || { u.error "option -t requires an argument"; exit $_E_USG; }
+        template="$2"
+        shift 2
+        ;;
+      -o)
+        [[ $# -gt 1 ]] || { u.error "option -o requires an argument"; exit $_E_USG; }
+        user_variables+=("output_path=$2")
+        shift 2
+        ;;
+      --*=*)
+        # Generic --key=value parsing
+        local pair="${1#--}"  # Remove -- prefix
+        local key="${pair%%=*}"
+        local value="${pair#*=}"
+        # Validate key (letters, numbers, underscore only)
+        [[ "$key" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]] || { u.error "invalid variable name: '$key' (must start with letter/underscore, contain only letters/numbers/underscore)"; exit $_E_USG; }
+        # Add to user variables (case sensitive)
+        user_variables+=("$key=$value")
+        u.debug "user variable: $key=$value"
+        shift
+        ;;
+      --*)
+        u.error "invalid option format: $1 (use --key=value)"
+        exit $_E_USG
+        ;;
+      -*)
+        u.error "unknown option: $1"
+        exit $_E_USG
+        ;;
+      *)
+        # This is the project name (first positional argument)
+        if [[ "$wizard" == true ]]; then
+          u.error "project name not allowed in wizard mode"
+          exit $_E_USG
+        fi
+        if [[ -z "$project" ]]; then
+          project="$1"
+          shift
+        else
+          u.error "unexpected argument: $1"
+          exit $_E_USG
+        fi
+        ;;
+    esac
+  done
+  
+  # Route to appropriate mode
+  # Pass variable references (not values) to allow functions to modify originals:
+  # - user_variables array will be modified by adding key=value pairs
+  # - project string will be set to the project name
+  # - template string will be set to the template choice
+  if [[ "$wizard" == true ]]; then
+    collect_wizard_variables user_variables project template
+  else
+    collect_cli_variables user_variables project template
+  fi
+  
+  # Generate script (same for both modes)
+  generate_project "$project" "$template" "${user_variables[@]}"
+}
+
+# Snip command - console output by default, file output with confirmation
+cmd_snip() {
+  u.debug "snip command called with args: $*"
+  
+  local opt source_file="" section="app" output=""
+  local OPTIND=1
+  
+  while getopts "f:s:o:" opt; do
+    case $opt in
+      f) source_file="$OPTARG";;
+      s) section="$OPTARG";;  
+      o) output="$OPTARG";;
+      \?) u.error "unknown snip option: -${OPTARG}"; exit $_E_USG;;
+    esac
+  done
+  shift $((OPTIND-1))
+  
+  [[ -n "$source_file" ]] || { u.error "source file required (-f)"; exit $_E_USG; }
+  [[ -f "$source_file" ]] || { u.error "source file not found: $source_file"; exit $_E_NF; }
+  
+  u.debug "extracting section '$section' from $source_file"
+  
+  # Extract section using core operation
+  local section_content
+  section_content=$(copy_section "$source_file" "$section") || { u.error "failed to extract section '$section'"; exit $_E_NF; }
+  
+  # Output to console or file
+  if [[ -z "$output" ]]; then
+    # Default: print to console
+    u.info "section '$section' from $source_file:"
+    printf '%s\n' "$section_content"
+  else
+    # File output: check for existing file and confirm
+    [[ -f "$output" ]] && { u.confirm "File exists: $output. Overwrite?" || { u.info "Cancelled"; exit 0; }; }
+    
+    printf '%s\n' "$section_content" > "$output" || { u.error "failed to write to $output"; exit $_E; }
+    u.info "extracted section '$section' to: $output"
+  fi
+}
+
+# Update command - explicit file required, always confirm
+cmd_update() {
+  u.debug "update command called with args: $*"
+  
+  local opt target_file="" template="" force=false
+  local OPTIND=1
+  
+  while getopts "f:t:y" opt; do
+    case $opt in
+      f) target_file="$OPTARG";;
+      t) template="$OPTARG";;
+      y) force=true;;
+      \?) u.error "unknown update option: -${OPTARG}"; exit $_E_USG;;
+    esac
+  done
+  shift $((OPTIND-1))
+  
+  # Target file is required (no auto-detection)
+  [[ -n "$target_file" ]] || { u.error "target file required (-f)"; exit $_E_USG; }
+  [[ -f "$target_file" ]] || { u.error "target file not found: $target_file"; exit $_E_NF; }
+  
+  # Detect original template if not specified
+  if [[ -z "$template" ]]; then
+    local template_id template_name
+    template_id=$(detect_template_id "$target_file")
+    template_name="${template_id%-*}"
+    template="$template_name"
+    u.info "detected template: $template (ID: $template_id)"
+  else
+    # Validate template compatibility when forced
+    local detected_id detected_template
+    detected_id=$(detect_template_id "$target_file")
+    detected_template="${detected_id%-*}"
+    
+    if [[ "$detected_template" != "$template" ]]; then
+      u.warn "Template mismatch! Script created with '$detected_template' but forcing '$template'"
+      u.warn "This may introduce breaking changes to your script"
+      if [[ "$force" != true ]]; then
+        u.confirm "Continue with template mismatch?" || { u.info "Cancelled"; return 0; }
+      fi
+    fi
+  fi
+  
+  # Get template file
+  local template_file
+  template_file=$(get_template_file "$template") || exit $?
+  [[ -f "$template_file" ]] || { u.error "template file not found: $template_file"; exit $_E_NF; }
+  
+  # Final confirmation before updating (skip if force)
+  if [[ "$force" != true ]]; then
+    u.info "Will update: $target_file"
+    u.info "Using template: $template"
+    u.info "Sections to update: ${_SECTIONS_UPDATE[*]}"
+    u.info "Sections preserved: ${_SECTIONS_PRESERVE[*]}"
+    u.confirm "Update will modify $target_file. Continue?" || { u.info "Cancelled"; return 0; }
+  fi
+  
+  # Use new template replacement approach
+  update_script "$target_file" "$template"
+  local update_result=$?
+  
+  if [[ $update_result -eq 0 ]]; then
+    u.info "update complete: $target_file (template: $template)"
+  else
+    u.error "update failed: $target_file"
+    return $update_result
+  fi
+  
+  return 0
+}
+
+# Upgrade command - handles both bootstrap and upgrade
+cmd_upgrade() {
+  u.debug "upgrade command called with args: $*"
+  
+  local force=false
+  [[ "${1:-}" == "--force" ]] && force=true
+  
+  u.info "checking for updates..."
+  
+  # Check if remote is available
+  local version_url="$_ZAP_REMOTE/$_ZAP_REMOTE_VERSION"
+  local temp_version
+  temp_version=$(mktemp)
+  
+  if ! download_file "$version_url" "$temp_version"; then
+    rm -f "$temp_version"
+    u.error "cannot reach remote repository: $_ZAP_REMOTE"
+    u.error "check internet connection or try again later"
+    return $_E_NC
+  fi
+  
+  local remote_version current_version
+  remote_version=$(tr -d '\n\r ' < "$temp_version" 2>/dev/null)
+  current_version=$(_version)
+  rm -f "$temp_version"
+  
+  [[ -n "$remote_version" ]] || { u.error "invalid remote version data"; return $_E; }
+  
+  # Determine operation type
+  if templates_exist && [[ "$force" == false ]]; then
+    u.info "current: $current_version, remote: $remote_version"
+    u.info "upgrade available (placeholder - always upgrades in v1)"
+  else
+    u.info "performing first-time setup or forced upgrade"
+  fi
+  
+  perform_upgrade || { u.error "upgrade failed"; return $_E; }
+  u.info "upgrade completed successfully"
+}
+##] commands
+
+##[ utils
+u.read() {
+  local _p="${1:-}" _c="${2:-false}" _r=""
+  printf "${_YLW}>> %s${_RST} " "$_p" >&2
+  [[ "$_c" == true ]] && { [[ -n "${ZSH_VERSION:-}" ]] && read -k1 -r _r </dev/tty || read -n1 -r _r </dev/tty; } || read -r _r </dev/tty
+  echo >&2; printf '%s' "$_r"
+}
+
+u.readchar() { u.read "${1:-}" true; }
+
+u.readline() { u.read "${1:-Enter line:}" false; }
+
+u.confirm() { local _r; _r=$(u.readchar "${1:-Continue?} [y/N]:"); [[ "$(echo "$_r" | tr '[:upper:]' '[:lower:]')" == y ]]; }
+
+u.online() { [[ "$(u.os)" == "mac" ]] && ping -c 1 -t 1 8.8.8.8 >/dev/null 2>&1 || ping -c 1 -W 1 8.8.8.8 >/dev/null 2>&1; }
+
+u.kurl() {
+  local _method="${1:-GET}" _endpoint="${2:-}"
+  [[ -n "$_endpoint" ]] || { u.error "endpoint required"; return $_E_USG; }
+  local _payload="${3:-}"; shift 3
+  local _opts=("-s" "-f" "--location" "-X" "$_method" "--connect-timeout" "$_CURL_TIMEOUT_CONNECT" "--max-time" "$_CURL_TIMEOUT_MAX")
+  [[ -n "$_payload" ]] && _opts+=("-d" "$_payload")
+  local _header; for _header in "$@"; do _opts+=("-H" "$_header"); done
+  u.debug "request>>>>: $(u.array_join ' ' curl "${_opts[@]:-}" "$_endpoint")"
+  local _r _e
+  _r=$(curl "${_opts[@]}" "$_endpoint")
+  _e=$?
+  u.debug "response<<<<: $_r"
+  echo "$_r" && return $_e
+}
+
+u.array_join() {
+  local _d="${1:-}" _f=true _i; [[ $# -gt 0 ]] && shift
+  for _i in "$@"; do [[ "$_f" == true ]] && { printf '%s' "$_i"; _f=false; } || printf '%s%s' "$_d" "$_i"; done
+}
+##] utils
+
+##[ support
+get_config_dir() {
+  [[ -n "${ZAP_HOME:-}" ]] && { echo "$ZAP_HOME"; return; }
+  
+  local xdg_config="${XDG_CONFIG_HOME:-$HOME/.config}"
+  echo "$xdg_config/$__NAME"
+}
+
+validate_config_setup() {
+  local config_dir="$1"
+  local validation_errors=0
+  
+  # Test directory is writable
+  [[ -w "$config_dir" ]] || { u.error "config directory not writable: $config_dir"; return $_E_NP; }
+  
+  # Test essential templates exist using generic system
+  local template_dir="$config_dir/templates"
+  [[ -d "$template_dir" ]] || { u.error "templates directory missing: $template_dir"; return $_E_NF; }
+  
+  # Validate each known template
+  local template missing_templates=()
+  for template in "${_TEMPLATES[@]}"; do
+    local template_file="$template_dir/${template}.sh"
+    if [[ -f "$template_file" ]]; then
+      u.debug "found template: ${template}.sh"
+    else
+      missing_templates+=("${template}.sh")
+    fi
+  done
+  
+  # Handle missing templates
+  if [[ ${#missing_templates[@]} -gt 0 ]]; then
+    if [[ ${#missing_templates[@]} -eq ${#_TEMPLATES[@]} ]]; then
+      # All templates missing - critical error
+      u.error "no templates found in: $template_dir"
+      u.error "missing: ${missing_templates[*]}"
+      u.error "run '$__NAME upgrade' to download templates"
+      return $_E_NF
+    else
+      # Some templates missing - warn but continue
+      u.warn "missing templates: ${missing_templates[*]}"
+      u.warn "run '$__NAME upgrade' to ensure all templates available"
+    fi
+  fi
+  
+  # Validate license directory (optional feature)
+  local licenses_dir="$config_dir/templates/licenses"
+  if [[ -d "$licenses_dir" ]]; then
+    local license_count
+    license_count=$(find "$licenses_dir" -name "*.txt" -type f 2>/dev/null | wc -l)
+    if [[ $license_count -gt 0 ]]; then
+      u.debug "found $license_count license files"
+    else
+      u.debug "licenses directory exists but no license files found"
+    fi
+  else
+    u.debug "no licenses directory found (license features not available)"
+  fi
+  
+  u.debug "config validation passed: $config_dir"
+  return 0
+}
+
+ensure_config_dir() {
+  local config_dir
+  config_dir=$(get_config_dir)
+  
+  # Create if needed
+  [[ -d "$config_dir" ]] || mkdir -p "$config_dir" || { u.error "cannot create config dir: $config_dir"; return $_E_NP; }
+  
+  # Validate setup
+  validate_config_setup "$config_dir" || return $?
+  
+  echo "$config_dir"
+}
+
+get_template_dir() {
+  # Dev mode: use local templates/ directory if it exists
+  if [[ "$__DEV_MODE" == true ]] && [[ -d "templates" ]]; then
+    echo "templates"
+    return 0
+  fi
+  
+  # Production mode: use config directory
+  local config_dir
+  config_dir=$(get_config_dir)
+  echo "$config_dir/templates"
+}
+
+# Get template file path with dev mode and config directory support
+get_template_file() {
+  local template_name="${1:-$_TEMPLATE_DFLT}"
+  
+  # Validate template name against known templates
+  local valid_template=false
+  local tmpl
+  for tmpl in "${_TEMPLATES[@]}"; do
+    [[ "$template_name" == "$tmpl" ]] && { valid_template=true; break; }
+  done
+  [[ "$valid_template" == true ]] || { u.error "unknown template: $template_name (available: ${_TEMPLATES[*]})"; return $_E_USG; }
+  
+  # Generic mapping: template_name.sh
+  local template_file="${template_name}.sh"
+  
+  local template_dir template_path
+  template_dir=$(get_template_dir)
+  template_path="$template_dir/$template_file"
+  
+  if [[ -f "$template_path" ]]; then
+    echo "$template_path"
+    return 0
+  fi
+  
+  u.error "template file not found: $template_file"
+  u.error "  dev mode: $__DEV_MODE"
+  u.error "  searched: $template_path"
+  u.error "  hint: run '$__NAME upgrade' to download templates"
+  return $_E_NF
+}
+
+collect_cli_variables() {
+  local -n vars_ref=$1      # Reference to user_variables array
+  local -n project_ref=$2   # Reference to _project string
+  local -n template_ref=$3  # Reference to _template string
+  
+  # Validate required CLI arguments
+  [[ -n "$project_ref" ]] || { u.error "$__NAME init <project-name> or $__NAME init -w"; exit $_E_USG; }
+  [[ "$project_ref" =~ ^[a-zA-Z0-9_-]+$ ]] || { u.error "invalid project name: '$project_ref' (letters/numbers/hyphens/underscores only)"; exit $_E_USG; }
+  
+  # If no output path specified, use default
+  local user_vars_string="${vars_ref[*]}"
+  if [[ "$user_vars_string" != *"output_path="* ]]; then
+    vars_ref+=("output_path=${project_ref}.sh")
+  fi
+  
+  # CLI mode complete - no additional collection needed
+  u.debug "cli mode: project=$project_ref, template=$template_ref, variables=${vars_ref[*]}"
+}
+
+collect_wizard_variables() {
+  # shellcheck disable=SC2178  # vars_ref is intentionally a nameref to array
+  local -n vars_ref=$1      # Reference to user_variables array
+  local -n project_ref=$2   # Reference to _project string
+  local -n template_ref=$3  # Reference to _template string
+
+  u.info "Interactive Project Setup"
+  echo
+  
+  # 1. Template selection FIRST (affects available variables)
+  if ! has_variable "template" "${vars_ref[@]}"; then
+    local template_options=$(u.array_join "," "${_TEMPLATES[@]}")
+    local template_choice=$(u.readline "Template ($template_options) - [$_TEMPLATE_DFLT]:")
+    template_ref="${template_choice:-$_TEMPLATE_DFLT}"
+    
+    # Validate template choice
+    local valid_template=false
+    local tmpl
+    for tmpl in "${_TEMPLATES[@]}"; do
+      [[ "$template_ref" == "$tmpl" ]] && { valid_template=true; break; }
+    done
+    [[ "$valid_template" == true ]] || { u.error "invalid template: '$template_ref' (available: $template_options)"; exit $_E_USG; }
+  fi
+  
+  # 2. Project name
+  project_ref=$(u.readline "Project name:")
+  [[ -n "$project_ref" ]] || { u.info "cancelled"; exit 0; }
+  [[ "$project_ref" =~ ^[a-zA-Z0-9_-]+$ ]] || { u.error "invalid project name: '$project_ref' (letters/numbers/hyphens/underscores only)"; exit $_E_USG; }
+  
+  # 3. Output path (wizard-specific)
+  local output_path=$(u.readline "Output file (${project_ref}.sh):")
+  output_path="${output_path:-${project_ref}.sh}"
+  vars_ref+=("output_path=$output_path")
+  
+  # 4. Author info (only ask for missing values)
+  if ! has_variable "author" "${vars_ref[@]}"; then
+    local author=$(u.readline "Author (anonymous):")
+    [[ -n "$author" ]] && vars_ref+=("author=$author")
+  fi
+  
+  # 5. Email (only ask for missing values)
+  if ! has_variable "email" "${vars_ref[@]}"; then
+    local email=$(u.readline "Email (optional):")
+    [[ -n "$email" ]] && vars_ref+=("email=$email")
+  fi
+  
+  # 6. Project details (only ask for missing values)
+  if ! has_variable "detail" "${vars_ref[@]}"; then
+    local detail=$(u.readline "Brief description (Generated by zap-sh):")
+    detail="${detail:-Generated by zap-sh}"
+    vars_ref+=("detail=$detail")
+  fi
+  
+  # 6. Project description (only ask for missing values)
+  if ! has_variable "description" "${vars_ref[@]}"; then
+    local description=$(u.readline "Long description (Generated by zap-sh template):")
+    description="${description:-Generated by zap-sh template}"
+    vars_ref+=("description=$description")
+  fi
+
+  # 7. License selection with validation
+  if ! has_variable "license" "${vars_ref[@]}"; then
+    local config_dir
+    config_dir=$(get_config_dir)
+    
+    # Get available licenses (Bash 3.2 compatible)
+    local license_array=()
+    local license_line
+    while IFS= read -r license_line; do
+      [[ -n "$license_line" ]] && license_array+=("$license_line")
+    done < <(get_available_licenses "$config_dir" 2>/dev/null)
+    
+    if [[ ${#license_array[@]} -gt 0 ]]; then
+      local license_options=$(u.array_join "," "${license_array[@]}")
+      local default_license="${license_array[0]}"
+      local license=$(u.readline "License ($license_options) - [$default_license]:")
+      license="${license:-$default_license}"
+      
+      # Validate license choice
+      local valid_license=false
+      local lic
+      for lic in "${license_array[@]}"; do
+        [[ "$license" == "$lic" ]] && { valid_license=true; break; }
+      done
+      [[ "$valid_license" == true ]] || { u.error "invalid license: '$license' (available: $license_options)"; exit $_E_USG; }
+      
+      vars_ref+=("license=$license")
+    else
+      u.error "no licenses available - run '$__APP upgrade' to download license templates"
+      exit $_E_NF
+    fi
+  fi
+  
+  # Show summary
+  echo
+  u.info "Project Summary:"
+  u.info "  Name: $project_ref"
+  u.info "  Template: $template_ref"
+  u.info "  Output: $output_path"
+  for var in "${vars_ref[@]}"; do
+    # Skip output_path in the variable list since we show it separately
+    [[ "$var" == output_path=* ]] && continue
+    u.info "  ${var%%=*}: ${var#*=}"
+  done
+  echo
+  
+  u.confirm "Create project with these settings?" || { u.info "cancelled"; exit 0; }
+  
+  u.debug "wizard mode: project=$project_ref, template=$template_ref, variables=${vars_ref[*]}"
+}
+
+generate_project() {
+  local project="$1" template="$2"
+  shift 2
+  local user_variables=("$@")
+  
+  u.debug "generating project: $project with template: $template"
+  
+  # Determine output file (check for user-provided path first)
+  local output_file="${project}.sh"
+  local user_vars_string="${user_variables[*]}"
+  if [[ "$user_vars_string" == *"output_path="* ]]; then
+    # Extract output path from user variables (both wizard and CLI mode)
+    local var
+    for var in "${user_variables[@]}"; do
+      if [[ "$var" == output_path=* ]]; then
+        output_file="${var#output_path=}"
+        break
+      fi
+    done
+  fi
+  
+  # Create output directory if needed
+  local output_dir
+  output_dir="$(dirname "$output_file")"
+  if [[ "$output_dir" != "." && ! -d "$output_dir" ]]; then
+    u.debug "creating output directory: $output_dir"
+    mkdir -p "$output_dir" || { u.error "cannot create directory: $output_dir"; exit $_E_NP; }
+    u.info "created directory: $output_dir"
+  fi
+  
+  # Check if output file exists and confirm overwrite
+  [[ -f "$output_file" ]] && { u.confirm "File exists: $output_file. Overwrite?" || { u.info "cancelled"; exit 0; }; }
+  
+  # Prepare default variables
+  local default_variables=(
+    "app=$project"
+    "year=$(date +%Y)"
+    "detail=Generated by $__NAME"
+    "description=Generated by $__NAME template"
+  )
+  
+  # Add missing defaults (avoid duplicates)
+  local user_vars_string="${user_variables[*]}"
+  [[ "$user_vars_string" != *"author="* ]] && default_variables+=("author=anonymous")
+  [[ "$user_vars_string" != *"version="* ]] && default_variables+=("version=0.1.0")
+  [[ "$user_vars_string" != *"email="* ]] && default_variables+=("email=")
+  
+  # Handle license - either from user input or default
+  local license_name="MIT License"
+  local license_content=""
+  
+  if [[ "$user_vars_string" == *"license="* ]]; then
+    # Extract license name from user variables
+    local license_code=""
+    local license_var
+    for license_var in "${user_variables[@]}"; do
+      if [[ "$license_var" == license=* ]]; then
+        license_code="${license_var#license=}"
+        break
+      fi
+    done
+    
+    if [[ -n "$license_code" ]]; then
+      # Get license content (exit with error if fails)
+      local config_dir
+      config_dir=$(get_config_dir)
+      if ! license_content=$(apply_license "$license_code" "$config_dir" "${user_variables[@]}" "${default_variables[@]}" 2>/dev/null); then
+        u.error "failed to apply license: '$license_code'"
+        u.error "run '$__APP upgrade' to ensure license templates are available"
+        exit $_E_NF
+      fi
+      
+      # Set license display name
+      local license_file
+      license_file=$(get_license_file "$license_code" "$config_dir")
+      if [[ -f "$license_file" ]]; then
+        license_name="$(basename "$license_file" .txt) License"
+      else
+        license_name="$license_code License"
+      fi
+    fi
+  fi
+  
+  # Add license variables
+  default_variables+=("license_name=$license_name")
+  if [[ -n "$license_content" ]]; then
+    default_variables+=("license_content=$license_content")
+  else
+    default_variables+=("license=")
+  fi
+  
+  # Merge variables 
+  local all_variables=("${user_variables[@]}" "${default_variables[@]}")
+  
+  u.info "creating project: $project"
+  u.info "template: $template"
+  
+  if [[ "$__DBG" == true ]]; then
+    u.debug "final variables:"
+    for var in "${all_variables[@]}"; do u.debug "  $var"; done
+  fi
+  
+  # Get template file
+  local template_file
+  template_file=$(get_template_file "$template") || exit $?
+  [[ -f "$template_file" ]] || { u.error "template file not found: $template_file"; exit $_E_NF; }
+  
+  # Generate script
+  generate_script "$template_file" "$output_file" "${all_variables[@]}" || { u.error "script generation failed"; exit $_E; }
+  chmod +x "$output_file" || u.warn "could not make script executable: $output_file"
+  
+  u.info "created: $output_file"
+  u.info "run: ./$output_file -h"
+}
+
+get_available_licenses() {
+  local template_dir licenses_dir
+  template_dir=$(get_template_dir)
+  licenses_dir="$template_dir/licenses"
+  
+  [[ -d "$licenses_dir" ]] || { u.debug "licenses directory not found: $licenses_dir"; return 1; }
+  
+  local license_files
+  license_files=$(find "$licenses_dir" -name "*.txt" -type f 2>/dev/null)
+  [[ -n "$license_files" ]] || { u.debug "no license files found in: $licenses_dir"; return 1; }
+  
+  echo "$license_files" | while IFS= read -r file; do
+    basename "$file" .txt
+  done | tr '[:upper:]' '[:lower:]' | sort
+}
+
+get_license_file() {
+  local license_name="$1"
+  [[ -n "$license_name" ]] || { u.debug "license name required for get_license_file"; return 1; }
+  
+  local template_dir licenses_dir license_file
+  template_dir=$(get_template_dir)
+  licenses_dir="$template_dir/licenses"
+  
+  [[ -d "$licenses_dir" ]] || { u.debug "licenses directory not found: $licenses_dir"; return 1; }
+  
+  license_file=$(find "$licenses_dir" -iname "${license_name}.txt" -type f 2>/dev/null | head -n1)
+  if [[ -n "$license_file" && -f "$license_file" ]]; then
+    echo "$license_file"
+    return 0
+  else
+    u.debug "license file not found: ${license_name}.txt in $licenses_dir"
+    return 1
+  fi
+}
+
+apply_license() {
+  local license_name="$1" config_dir="$2"
+  shift 2
+  local variables=("$@")
+  
+  [[ -n "$license_name" ]] || { u.error "license name required for apply_license"; return $_E_USG; }
+  
+  local license_file
+  license_file=$(get_license_file "$license_name" "$config_dir")
+  if [[ ! -f "$license_file" ]]; then
+    u.error "license file not found: $license_name"
+    u.error "available licenses: $(get_available_licenses "$config_dir" | tr '\n' ' ')"
+    return $_E_NF
+  fi
+  
+  # Use existing apply_variables system with license content
+  local license_content
+  license_content=$(cat "$license_file") || { u.error "failed to read license file: $license_file"; return $_E; }
+  apply_variables "$license_content" "${variables[@]}"
+}
+
+has_variable() {
+  local var_name="$1"
+  shift
+  local var_array=("$@")
+  
+  local var
+  for var in "${var_array[@]}"; do
+    [[ "$var" == "$var_name"=* ]] && return 0
+  done
+  return 1
+}
+
+download_file() {
+  local url="$1" output_file="$2"
+  u.require curl
+  u.online || { u.error "no internet connection"; return $_E_NC; }
+  u.kurl GET "$url" "" > "$output_file"
+}
+
+templates_exist() {
+  local template_dir template_file
+  template_dir=$(get_template_dir)
+  template_file="$template_dir/${_TEMPLATE_DFLT}.sh"
+  
+  # Check if default template exists (indicates working setup)
+  [[ -f "$template_file" ]]
+}
+
+download_manifest() {
+  local config_dir="$1"
+  local manifest_url="$_ZAP_REMOTE/$_ZAP_REMOTE_MANIFEST"
+  local temp_manifest
+  temp_manifest=$(mktemp)
+  
+  download_file "$manifest_url" "$temp_manifest" || { rm -f "$temp_manifest"; return $_E_NC; }
+  
+  # Parse manifest and download files
+  while IFS=':' read -r file_type file_path; do
+    [[ "$file_type" =~ ^[[:space:]]*# ]] && continue  # Skip comments
+    [[ -z "$file_type" || -z "$file_path" ]] && continue  # Skip empty lines
+    
+    case "$file_type" in
+      template|license)
+        local target_file="$config_dir/$file_path"
+        local source_url="$_ZAP_REMOTE/$file_path"
+        
+        # Create directory if needed
+        mkdir -p "$(dirname "$target_file")"
+        
+        u.info "downloading: $file_path"
+        download_file "$source_url" "$target_file" || { u.error "failed to download: $file_path"; return $_E_NC; }
+        ;;
+      version)
+        # Skip version file - handled separately
+        ;;
+      binary)
+        # Skip binary - handled separately  
+        ;;
+      *)
+        u.debug "skipping unknown file type: $file_type:$file_path"
+        ;;
+    esac
+  done < "$temp_manifest"
+  
+  rm -f "$temp_manifest"
+}
+
+# Universal section extractor - works with any section name
+extract_section() {
+  local template_file="$1" section_name="$2"
+  [[ -f "$template_file" ]] || { u.error "template file not found: $template_file"; return $_E_NF; }
+  
+  # Check if section exists
+  if ! grep -q "^##( $section_name$" "$template_file"; then
+    u.debug "section '$section_name' not found in $template_file"
+    return 1
+  fi
+  
+  # Extract section content (including markers)
+  sed -n "/^##( $section_name$/,/^##) $section_name$/p" "$template_file"
+}
+
+# Core section operations
+copy_section() { extract_section "$@"; }
+
+replace_section() {
+  local target_file="$1" section_name="$2" new_content="$3"
+  [[ -f "$target_file" ]] || { u.error "target file not found: $target_file"; return $_E_NF; }
+  [[ -n "$new_content" ]] || { u.error "new content required for section replacement"; return $_E_USG; }
+  
+  local temp_file
+  temp_file=$(mktemp) || { u.error "cannot create temp file"; return $_E; }
+  
+  # Copy everything before the section
+  sed -n "1,/^##( $section_name$/p" "$target_file" | sed '$d' > "$temp_file"
+  
+  # Add new content
+  printf '%s\n' "$new_content" >> "$temp_file"
+  
+  # Copy everything after the section  
+  sed -n "/^##) $section_name$/,\$p" "$target_file" | sed '1d' >> "$temp_file"
+  
+  # Replace original file atomically
+  mv "$temp_file" "$target_file" || { rm -f "$temp_file"; u.error "failed to replace section in $target_file"; return $_E; }
+  u.debug "replaced section '$section_name' in $target_file"
+}
+
+detect_template_id() {
+  local script_file="$1"
+  [[ -f "$script_file" ]] || { u.error "script file not found: $script_file"; return $_E_NF; }
+  
+  # Look for template ID in script
+  local template_id
+  template_id=$(grep 'readonly __ID=' "$script_file" 2>/dev/null | sed 's/.*="\(.*\)".*/\1/')
+  
+  if [[ -n "$template_id" ]]; then
+    echo "$template_id"
+    return 0
+  fi
+  
+  # Fallback: warn and default to basic
+  u.warn "critical: template ID not found in $script_file - falling back to basic template. cancel operation if incorrect!"
+  echo "basic-1.0.0"
+}
+
+# Generic variable substitution engine
+apply_variables() {
+  local content="$1"
+  shift
+  
+  local result="$content"
+  local assignment var value
+  
+  for assignment in "$@"; do
+    if [[ "$assignment" == *=* ]]; then
+      var="${assignment%%=*}"
+      value="${assignment#*=}"
+      
+      # Use bash parameter expansion for multiline content (more reliable)
+      if [[ "$value" == *$'\n'* ]]; then
+        # Use bash parameter expansion to replace all occurrences
+        local placeholder="{{$var}}"
+        while [[ "$result" == *"$placeholder"* ]]; do
+          result="${result/"$placeholder"/"$value"}"
+        done
+        u.debug "applied variable (multiline): $var=[multiline content]"
+      else
+        # Single-line substitution using sed (safe for single lines)
+        local escaped_value
+        escaped_value=$(printf '%s\n' "$value" | sed 's/[[\.*^$()+?{|\/]/\\&/g; s/&/\\&/g')
+        result=$(printf '%s\n' "$result" | sed "s/{{$var}}/$escaped_value/g")
+        u.debug "applied variable (case-sensitive): $var=$value"
+      fi
+    fi
+  done
+  
+  printf '%s\n' "$result"
+}
+
+# Section-based script generation
+generate_script() {
+  local template_file="$1" output_file="$2"
+  shift 2
+  local variables=("$@")  # var=value pairs
+  
+  u.debug "generating script from $template_file to $output_file"
+  u.debug "variables: ${variables[*]}"
+  
+  # Create empty output file
+  true > "$output_file" || { u.error "cannot create output file: $output_file"; return $_E_NP; }
+  # ALWAYS add shebang first (ensures executable scripts)
+  echo "#!/usr/bin/env bash" > "$output_file"
+  
+  # Process each section
+  local section section_content enriched_content
+  for section in "${_SECTIONS[@]}"; do
+    u.debug "processing section: $section"
+    # Extract section from template
+    section_content=$(extract_section "$template_file" "$section")
+    
+    if [[ -n "$section_content" ]]; then
+      # Apply variables to section content
+      enriched_content=$(apply_variables "$section_content" "${variables[@]}")
+      # Append to output file
+      printf '%s\n' "$enriched_content" >> "$output_file"
+      u.debug "added section '$section' ($(echo "$enriched_content" | wc -l) lines)"
+    else
+      u.debug "skipping missing section: $section"
+    fi
+  done
+  
+  u.debug "script generation complete"
+}
+
+update_script() {
+  local target_file="$1" template="$2"
+  
+  # Get the template file
+  local template_file
+  template_file=$(get_template_file "$template") || return $?
+  [[ -f "$template_file" ]] || { u.error "template file not found: $template_file"; return $_E_NF; }
+  
+  # Preserve user content
+  local preserved_header preserved_app
+  preserved_header=$(copy_section "$target_file" "header" 2>/dev/null || echo "")
+  preserved_app=$(copy_section "$target_file" "app" 2>/dev/null || echo "")
+  
+  u.debug "preserved header: $(echo "$preserved_header" | wc -l) lines"
+  u.debug "preserved app: $(echo "$preserved_app" | wc -l) lines"
+  
+  # Replace with fresh template
+  cp "$template_file" "$target_file" || { u.error "failed to copy template"; return $_E; }
+
+  u.debug "replaced with fresh $template template"
+  
+  # Restore user content
+  if [[ -n "$preserved_header" ]]; then
+    replace_section "$target_file" "header" "$preserved_header"
+    u.debug "restored header section"
+  fi
+  
+  if [[ -n "$preserved_app" ]]; then
+    replace_section "$target_file" "app" "$preserved_app"
+    u.debug "restored app section"
+  fi
+  
+  chmod +x "$target_file"
+  u.debug "restored executable permissions"
+  return 0
+}
+
+perform_upgrade() {
+  local config_dir
+  config_dir=$(ensure_config_dir) || return $?
+  
+  # Step 1: Download templates first
+  u.info "downloading templates and licenses..."
+  download_manifest "$config_dir" || { u.error "template download failed"; return $_E_NC; }
+  
+  # Step 2: Download and replace binary
+  local binary_url="$_ZAP_REMOTE/$__NAME"
+  local temp_binary
+  temp_binary=$(mktemp)
+  
+  u.info "downloading new binary..."
+  download_file "$binary_url" "$temp_binary" || { rm -f "$temp_binary"; u.error "binary download failed"; return $_E_NC; }
+  
+  chmod +x "$temp_binary" || { rm -f "$temp_binary"; u.error "cannot make binary executable"; return $_E; }
+  
+  # Atomic replacement
+  mv "$temp_binary" "$__APPFILE" || { rm -f "$temp_binary"; u.error "cannot replace binary"; return $_E; }
+  
+  u.info "upgrade completed - restart recommended"
+}
+##] support
+
+##[ functions
+_help() {
+  cat << EOF
+$__NAME $(_version) - Lightning-fast bash script generator
+
+USAGE:
+    $__APP <command> [OPTIONS]
+
+COMMANDS:
+    init <project>    Create new script from template
+    init -w           Interactive project setup wizard
+    snip              Extract section from script
+    update            Update existing script sections
+    upgrade           Update $__NAME binary and templates
+
+OPTIONS:
+    -h                Show this help
+    -v                Show version
+
+INIT COMMAND:
+    Quick Generation:
+        $__APP init my-tool
+        $__APP init backup-script -t basic
+        $__APP init api-client -o bin/api.sh
+
+    With Metadata:
+        $__APP init deploy-tool --author="DevOps Team" --email="devops@company.com"
+        $__APP init monitor -t enhanced --version="2.1.0" --license="apache"
+
+    Custom Output Paths:
+        $__APP init web-scraper -o scripts/scrapers/web-tool.sh
+        $__APP init backup -o ~/bin/backup-utility.sh -t enhanced
+        $__APP init deploy -o infrastructure/deploy.sh --author="SRE Team"
+
+    Interactive Wizard:
+        $__APP init -w
+        # Prompts for: template → project name → output path → author → email → license
+
+    Mixed Argument Order (all equivalent):
+        $__APP init project-name -t basic --author="Name"
+        $__APP init -t basic project-name --author="Name"
+        $__APP init --author="Name" -t basic project-name
+
+    Init Options:
+        -w                Interactive wizard mode
+        -t <template>     Template to use (basic, enhanced)
+        -o <path>         Output file path
+        --author=<name>   Author name
+        --email=<email>   Author email
+        --license=<type>  License (mit, apache, gpl)
+        --version=<ver>   Script version
+        --detail=<text>   Brief description
+        --description=<text> Long description
+
+SNIP COMMAND:
+    Extract Sections:
+        $__APP snip -f my-script.sh                    # Extract app section to console
+        $__APP snip -f my-script.sh -s helpers         # Extract helpers section
+        $__APP snip -f my-script.sh -s app -o logic.sh # Save app section to file
+
+    Snip Options:
+        -f <file>         Source script file (required)
+        -s <section>      Section to extract (default: app)
+        -o <file>         Output file (default: console)
+
+    Available Sections:
+        header, configuration, metadata, globals, helpers, app, core
+
+UPDATE COMMAND:
+    Update Scripts:
+        $__APP update -f my-script.sh                  # Auto-detect template and update
+        $__APP update -f old-script.sh -t basic        # Force specific template
+        $__APP update -f legacy-tool.sh -t enhanced    # Upgrade to enhanced template
+
+    Update Options:
+        -f <file>         Target script file (required)
+        -t <template>     Force specific template
+        -y                Skip confirmation prompts
+
+    Note: Updates preserve your code in ##( app section while refreshing framework sections
+
+UPGRADE COMMAND:
+    Self-Update:
+        $__APP upgrade                                 # Check and upgrade if newer version
+        $__APP upgrade --force                         # Force upgrade regardless of version
+
+TEMPLATES:
+    basic       Minimal template with essential utilities (~200 lines)
+                - Cross-platform bash utilities
+                - Structured logging and error handling  
+                - Simple argument parsing
+                - Best for: utilities, simple scripts
+
+    enhanced    Full-featured template with comprehensive library (~400+ lines)
+                - Rich utility library (60+ functions)
+                - Advanced argument parsing with auto-detection
+                - JSON processing, HTTP utilities, arrays
+                - Best for: complex tools, API clients, data processing
+
+VARIABLE SUBSTITUTION:
+    Built-in Variables:
+        {{app}}          Project name
+        {{author}}       Author name  
+        {{email}}        Author email
+        {{version}}      Script version
+        {{year}}         Current year
+        {{license_name}} License display name
+        {{license_content}} Full license text
+
+    Custom Variables:
+        $__APP init my-tool --author="John Doe" --custom_var="value" --api_key="secret"
+
+CONFIGURATION:
+    Environment Variables:
+        ZAP_DEV=true           Enable development mode (use local templates)
+        ZAP_HOME=/path         Custom template directory location  
+        ZAP_REMOTE=https://... Custom remote repository for templates
+        DEBUG=true             Enable debug logging
+
+    File Locations:
+        Templates:  ~/.config/$__NAME/templates/
+        Licenses:   ~/.config/$__NAME/templates/licenses/
+        Dev Mode:   ./templates/ (current directory)
+
+
+WORKFLOW EXAMPLES:
+    Create and Customize:
+        $__APP init api-tool -t enhanced -o tools/api.sh --author="Team"
+        ./tools/api.sh -h                              # Test generated script
+        # Edit ##( app section with your business logic
+        $__APP update -f tools/api.sh                   # Update framework when needed
+
+    Extract and Reuse:
+        $__APP snip -f production-tool.sh -s helpers -o shared/utils.sh
+        $__APP init new-tool -t basic                   # Generate new script
+        # Copy shared/utils.sh content into new script's helpers section
+
+    Development Workflow:
+        ZAP_DEV=true $__APP init test-script           # Use local templates
+        # Edit templates/basic.sh to customize
+        ZAP_DEV=true $__APP init another-test          # Uses your modified template
+
+    License Management:
+        $__APP init open-source -t enhanced --license="mit" --author="Dev Team"
+        $__APP init enterprise -t basic --license="proprietary" --email="legal@company.com"
+
+GENERATED SCRIPT FEATURES:
+    Safety & Compatibility:
+        - Bash 3.2+ compatible (macOS and Linux)
+        - Strict mode: set -eEuo pipefail
+        - Cross-platform path handling
+        - Proper signal handling and cleanup
+
+    Built-in Utilities:
+        - u.info, u.warn, u.error, u.debug (structured logging)
+        - u.require (dependency checking)
+        - u.confirm (user confirmation)
+        - u.os (platform detection)
+        - Plus 60+ utilities in enhanced template
+
+    Section-Based Organization:
+        ##( header     Script metadata and license
+        ##( app        YOUR CODE GOES HERE (preserved during updates)
+        ##( core       Framework bootstrap (updated automatically)
+
+TROUBLESHOOTING:
+    Common Issues:
+        No templates found:     $__APP upgrade
+        Permission denied:      chmod +x generated-script.sh
+        License not found:      $__APP upgrade (download license templates)
+        Template conflicts:     $__APP update -f script.sh -t basic
+
+    Debug Mode:
+        DEBUG=true $__APP init test-script -w           # See detailed logging
+        DEBUG=true $__APP update -f my-script.sh        # Debug update process
+
+For more examples and documentation, visit:
+https://github.com/budhash/$__NAME
+
+EOF
+}
+
+_version() { 
+  sed -n 's/^# VERSION:[[:space:]]*\(.*\)/\1/p' "$__APPFILE" 2>/dev/null || echo "unknown"
+}
+
+_cleanup() { 
+  u.debug "cleanup"
+}
+##] functions
+
+##) app
+
+##( core
+_boot() {
+  printf '%s\n' "${__OS[@]}" | grep -Fxq "$(u.os)" || u.die "unsupported OS: $(u.os) [required: ${__OS[*]}]"
+  local _tool; for _tool in "${__APP_DEPS[@]:-}"; do u.require "$_tool"; done
+}
+
+trap _cleanup EXIT
+if [[ "${BASH_SOURCE[0]:-}" == "${0}" ]]; then
+  _boot
+  _main "$@"
+fi
+##) core

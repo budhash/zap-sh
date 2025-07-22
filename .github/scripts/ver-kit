@@ -1,0 +1,632 @@
+#!/usr/bin/env bash
+##( header
+# --------------------------------------------------------------------
+# ver-kit - Universal version extraction and update toolkit
+# 
+# Get and set version information across multiple file types and languages
+# --------------------------------------------------------------------
+# AUTHOR: Copyright (C) 2025 Budha <budhash@gmail.com>
+# VERSION: 1.0.0
+# LICENSE: MIT
+# --------------------------------------------------------------------
+##) header
+
+##( configuration
+set -eEuo pipefail; IFS=$'\n\t'  # fail fast, secure IFS
+##) configuration
+
+##( metadata
+readonly __ID="basic-1.0.0"
+readonly __APP="$(basename "${BASH_SOURCE[0]:-}")"
+readonly __APPFILE="${BASH_SOURCE[0]}"
+readonly __APPDIR="$(s="${BASH_SOURCE[0]}"; while [[ -h "$s" ]]; do 
+  d="$(cd -P "$(dirname "$s")" && pwd)"; s="$(readlink "$s")"; [[ "$s" != /* ]] && s="$d/$s"; done; cd -P "$(dirname "$s")" && pwd)"
+__DBG=${DEBUG:-false}
+##) metadata
+
+##( globals
+
+##[ colors
+_RST=$'\033[0m' _GRN=$'\033[0;32m' _YLW=$'\033[0;33m' _RED=$'\033[0;31m' _BLU=$'\033[0;34m'
+[[ -n "${NO_COLOR:-}" || ! -t 1 ]] && _RST='' _GRN='' _YLW='' _RED='' _BLU=''
+##] colors
+
+##[ error
+# general failure / bad usage / dependency not found / unsupported OS / not found / permission error / not connected
+readonly _E=1 _E_USG=2 _E_DEP=3 _E_OS=4 _E_NF=5 _E_NP=6 _E_NC=7  
+##] error
+
+##) globals
+
+##( helpers
+
+##[ system
+u.os() { case "${OSTYPE:-}" in darwin*) echo mac;; linux*) echo linux;; *) echo unknown;; esac; }
+u.die() { u.error "$@"; exit $_E; }
+u.require() { 
+  local tool="${1:-}"
+  [[ -z "$tool" ]] && { u.error "missing dependency name"; exit $_E_DEP; }
+  if [[ "$tool" == /* ]] || [[ "$tool" == ./* ]] || [[ "$tool" == ../* ]]; then
+    [[ -x "$tool" ]] || { u.error "missing dependency: $tool"; exit $_E_DEP; } # Absolute or relative path - test directly
+  else
+    command -v "$tool" >/dev/null || { u.error "missing dependency: $tool"; exit $_E_DEP; }
+  fi
+}
+##] system
+
+##[ logging
+u.log() {
+  local _l="info " _co="$_GRN"
+  [[ "${1:-}" == "-l" ]] && { _l="${2:-info}"; shift 2; }
+  case "$_l" in warn) _co="$_YLW";; error) _co="$_RED";; debug) _co="$_BLU"; [[ "$__DBG" != true ]] && return;; esac
+  printf "${_co}[%s]${_RST} %s\n" "$_l" "$*" >&2
+  return 0
+}
+u.info() { u.log -l "info " "$@"; }
+u.warn() { u.log -l "warn " "$@"; }
+u.error() { u.log -l "error" "$@"; }
+u.debug() { u.log -l "debug" "$@"; }
+##] logging
+
+##) helpers
+
+##( app
+
+##[ config
+readonly __NAME=ver-kit
+readonly __OS=(mac linux)
+readonly __APP_DEPS=(sed grep)
+##] config
+
+##[ constants
+##] constants
+
+##[ functions
+# Helper function to extract version from a line (reduces code duplication)
+extract_version() {
+  local line="$1"
+  # SC2001 disabled: Complex regex pattern requires sed for proper extraction
+  # shellcheck disable=SC2001
+  echo "$line" | sed 's/.*\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*[^[:space:],;"]*\).*/\1/'
+}
+
+# Helper function for consistent version search pattern
+version_search_pattern() {
+  echo '[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*'
+}
+
+# Helper function to find first line containing version pattern
+find_version_line() {
+  local file="$1"
+  if [[ "$file" == "-" ]]; then
+    grep -m1 "$(version_search_pattern)" 2>/dev/null
+  else
+    grep -m1 "$(version_search_pattern)" "$file" 2>/dev/null
+  fi
+}
+
+# Helper function to validate version format
+is_valid_version() {
+  local version="$1"
+  echo "$version" | grep -q '^[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\(-[a-zA-Z0-9][a-zA-Z0-9.-]*\)\?$'
+}
+
+_main() {
+  # Handle global options first
+  case "${1:-}" in
+    -h) _help; exit 0 ;;
+    -v) _version; exit 0 ;;
+  esac
+  
+  [[ $# -gt 0 ]] || { _help; exit 0; }  # Show help when no args provided
+  
+  local command="$1"
+  shift
+  
+  case "$command" in
+    get) cmd_get "$@" ;;
+    set) cmd_set "$@" ;;
+    *) u.error "unknown command: $command"; _help; exit $_E_USG ;;
+  esac
+}
+
+cmd_get() {
+  # Parse options for get command
+  local _opt _file="" _pattern=""
+  local OPTIND=1
+  
+  while getopts "f:p:" _opt; do
+    case $_opt in
+      f) _file="$OPTARG";;
+      p) _pattern="$OPTARG";;
+      \?) u.error "unknown option for 'get': -${OPTARG:-}"; exit $_E_USG;;
+    esac
+  done
+  shift $((OPTIND-1))
+  
+  # Validate required arguments
+  [[ -n "$_file" ]] || { u.error "file required: use -f <file> or -f -"; return $_E_USG; }
+  
+  # Find matching line - from stdin or file
+  local matching_line
+  if [[ "$_file" == "-" ]]; then
+    u.debug "reading from stdin"
+    if [[ -n "$_pattern" ]]; then
+      u.debug "using pattern '$_pattern'"
+      matching_line=$(grep -m1 "$_pattern" 2>/dev/null) || {
+        u.error "pattern not found: $_pattern"
+        return $_E_NF
+      }
+    else
+      u.debug "using generic search for any version"
+      matching_line=$(find_version_line "-") || {
+        u.error "no version found in input"
+        return $_E_NF
+      }
+    fi
+  else
+    # Validate file exists and is readable
+    [[ -f "$_file" ]] || { u.error "file not found: $_file"; return $_E_NF; }
+    [[ -r "$_file" ]] || { u.error "file not readable: $_file"; return $_E_NP; }
+    
+    if [[ -n "$_pattern" ]]; then
+      u.debug "searching for pattern '$_pattern' in file '$_file'"
+      matching_line=$(grep -m1 "$_pattern" "$_file" 2>/dev/null) || {
+        u.error "pattern not found: $_pattern"
+        return $_E_NF
+      }
+    else
+      u.debug "using generic search for any version in file '$_file'"
+      matching_line=$(find_version_line "$_file") || {
+        u.error "no version found in file: $_file"
+        return $_E_NF
+      }
+    fi
+  fi
+  
+  u.debug "found matching line: $matching_line"
+  
+  # Extract version number (X.Y.Z or X.Y.Z-prerelease)
+  local version
+  version=$(extract_version "$matching_line")
+  
+  if [[ -n "$version" ]]; then
+    u.debug "extracted version: $version"
+    echo "$version"
+    return 0
+  else
+    u.error "no version found in matching line: $matching_line"
+    return $_E_NF
+  fi
+}
+
+cmd_set() {
+  # Parse options for set command
+  local _opt _file="" _pattern=""
+  local OPTIND=1
+  
+  while getopts "f:p:" _opt; do
+    case $_opt in
+      f) _file="$OPTARG";;
+      p) _pattern="$OPTARG";;
+      \?) u.error "unknown option for 'set': -${OPTARG:-}"; exit $_E_USG;;
+    esac
+  done
+  shift $((OPTIND-1))
+  
+  # Validate required arguments
+  [[ -n "$_file" ]] || { u.error "file required: use -f <file>"; return $_E_USG; }
+  [[ "$_file" != "-" ]] || { u.error "cannot set version in stdin (files only)"; return $_E_USG; }
+  [[ $# -eq 1 ]] || { u.error "set command requires exactly one version argument"; return $_E_USG; }
+  
+  local new_version="$1"
+  
+  # Validate version format (basic semantic version check)
+  if ! is_valid_version "$new_version"; then
+    u.error "invalid version format: $new_version"
+    u.error "expected: X.Y.Z or X.Y.Z-prerelease (e.g., 1.2.3, 1.2.3-alpha.1)"
+    return $_E_USG
+  fi
+  
+  # Validate file exists and is writable
+  [[ -f "$_file" ]] || { u.error "file not found: $_file"; return $_E_NF; }
+  [[ -w "$_file" ]] || { u.error "file not writable: $_file"; return $_E_NP; }
+  
+  u.debug "setting version in file '$_file' to '$new_version'"
+  
+  # First, find the current version using pattern detection
+  local current_version matching_line pattern_used
+  
+  if [[ -n "$_pattern" ]]; then
+    u.debug "using custom pattern: $_pattern"
+    pattern_used="$_pattern"
+    
+    # Find line with custom pattern
+    matching_line=$(grep -m1 "$pattern_used" "$_file" 2>/dev/null) || {
+      u.error "pattern not found: $pattern_used"
+      return $_E_NF
+    }
+  else
+    # Use auto-detection to find pattern and line
+    u.debug "auto-detecting pattern for: $_file"
+    
+    # Try language patterns and capture which one worked
+    local result
+    result=$(find_version_with_pattern "$_file") || {
+      u.error "no version found in file: $_file"
+      u.error "use -p option to specify custom pattern"
+      return $_E_NF
+    }
+    
+    # Parse result: "pattern|matching_line"
+    pattern_used="${result%%|*}"
+    matching_line="${result#*|}"
+    u.debug "found pattern: $pattern_used"
+  fi
+  
+  u.debug "found matching line: $matching_line"
+  u.debug "using pattern: $pattern_used"
+  
+  # Extract current version from the matching line
+  current_version=$(extract_version "$matching_line")
+  
+  if [[ -z "$current_version" ]]; then
+    u.error "could not extract version from matching line: $matching_line"
+    u.debug "sed result was empty"
+    return $_E_NF
+  fi
+  
+  u.debug "current version: $current_version"
+  
+  # Check if already at target version
+  if [[ "$current_version" == "$new_version" ]]; then
+    u.info "version already set to $new_version"
+    echo "$new_version"
+    return 0
+  fi
+  
+  # Create temporary file for atomic replacement
+  local temp_file="${_file}.tmp.$$"
+  
+  if [[ "$pattern_used" == "__SIMPLE_VERSION_FILE__" ]]; then
+    # Handle simple version files - replace entire content
+    u.debug "updating simple version file"
+    echo "$new_version" > "$temp_file" || {
+      rm -f "$temp_file"
+      u.error "failed to write new version"
+      return $_E
+    }
+    
+    # Verify it worked
+    local updated_version verification_line
+    verification_line=$(find_version_line "$temp_file") || {
+      rm -f "$temp_file"
+      u.error "version verification failed"
+      return $_E
+    }
+    updated_version=$(extract_version "$verification_line")
+    
+    if [[ "$updated_version" == "$new_version" ]]; then
+      # Preserve file permissions
+      if [[ -x "$_file" ]]; then
+        chmod +x "$temp_file" 2>/dev/null || u.debug "could not set execute permission"
+      fi
+      
+      # Try to preserve full permissions if stat is available
+      if command -v stat >/dev/null 2>&1; then
+        local perms
+        if [[ "$(u.os)" == "mac" ]]; then
+          perms=$(stat -f "%Mp%Lp" "$_file" 2>/dev/null)
+        else
+          perms=$(stat -c "%a" "$_file" 2>/dev/null)
+        fi
+        
+        if [[ -n "$perms" ]]; then
+          chmod "$perms" "$temp_file" 2>/dev/null || u.debug "could not set permissions $perms"
+        fi
+      fi
+      
+      # Atomic replacement
+      mv "$temp_file" "$_file" || {
+        rm -f "$temp_file"
+        u.error "failed to update file: $_file"
+        return $_E
+      }
+      
+      u.info "successfully updated $_file from $current_version to $new_version"
+      echo "$new_version"
+      return 0
+    else
+      rm -f "$temp_file"
+      u.error "version verification failed: expected $new_version, got $updated_version"
+      return $_E
+    fi
+  else
+    # Handle structured files - use sed with pattern matching
+    u.debug "updating structured file with pattern: $pattern_used"
+    
+    # Use sed to replace current version with new version in lines matching the pattern
+    if sed "/$pattern_used/s/$current_version/$new_version/g" "$_file" > "$temp_file"; then
+      # Verify the replacement worked by checking the new version exists
+      local updated_version verification_line
+      verification_line=$(grep -m1 "$pattern_used" "$temp_file" 2>/dev/null) || {
+        rm -f "$temp_file"
+        u.error "version replacement verification failed"
+        return $_E
+      }
+      updated_version=$(extract_version "$verification_line")
+      
+      if [[ "$updated_version" == "$new_version" ]]; then
+        # Preserve file permissions
+        if [[ -x "$_file" ]]; then
+          chmod +x "$temp_file" 2>/dev/null || u.debug "could not set execute permission"
+        fi
+        
+        # Try to preserve full permissions if stat is available
+        if command -v stat >/dev/null 2>&1; then
+          local perms
+          if [[ "$(u.os)" == "mac" ]]; then
+            perms=$(stat -f "%Mp%Lp" "$_file" 2>/dev/null)
+          else
+            perms=$(stat -c "%a" "$_file" 2>/dev/null)
+          fi
+          
+          if [[ -n "$perms" ]]; then
+            chmod "$perms" "$temp_file" 2>/dev/null || u.debug "could not set permissions $perms"
+          fi
+        fi
+        
+        # Atomic replacement
+        mv "$temp_file" "$_file" || {
+          rm -f "$temp_file"
+          u.error "failed to update file: $_file"
+          return $_E
+        }
+        
+        u.info "successfully updated $_file from $current_version to $new_version"
+        echo "$new_version"
+        return 0
+      else
+        rm -f "$temp_file"
+        u.error "version verification failed: expected $new_version, got $updated_version"
+        return $_E
+      fi
+    else
+      rm -f "$temp_file"
+      u.error "sed replacement failed"
+      return $_E
+    fi
+  fi
+}
+
+# Language pattern definitions
+get_shell_patterns() {
+  printf '%s\n' \
+    'VERSION:' \
+    'readonly.*__ID=' \
+    'VERSION[[:space:]]*=' \
+    'version[[:space:]]*=' \
+    'declare.*VERSION'
+}
+
+get_swift_patterns() {
+  printf '%s\n' \
+    'let[[:space:]][[:space:]]*version[[:space:]]*=' \
+    'static[[:space:]][[:space:]]*let[[:space:]][[:space:]]*version' \
+    'let[[:space:]][[:space:]]*appVersion[[:space:]]*=' \
+    'private[[:space:]][[:space:]]*let[[:space:]][[:space:]]*version' \
+    'VERSION:'
+}
+
+get_python_patterns() {
+  printf '%s\n' \
+    '__version__[[:space:]]*=' \
+    'version[[:space:]]*=' \
+    'VERSION[[:space:]]*=' \
+    '__VERSION__[[:space:]]*='
+}
+
+get_json_patterns() {
+  printf '%s\n' \
+    '"version"' \
+    '"app_version"' \
+    '"appVersion"'
+}
+
+get_java_patterns() {
+  printf '%s\n' \
+    'String[[:space:]][[:space:]]*VERSION[[:space:]]*=' \
+    'public[[:space:]][[:space:]]*static[[:space:]][[:space:]]*final[[:space:]][[:space:]]*String[[:space:]][[:space:]]*VERSION' \
+    'private[[:space:]][[:space:]]*static[[:space:]][[:space:]]*final[[:space:]][[:space:]]*String[[:space:]][[:space:]]*VERSION' \
+    'static[[:space:]][[:space:]]*final[[:space:]][[:space:]]*String[[:space:]][[:space:]]*VERSION'
+}
+
+get_kotlin_patterns() {
+  printf '%s\n' \
+    'const[[:space:]][[:space:]]*val[[:space:]][[:space:]]*VERSION[[:space:]]*=' \
+    'val[[:space:]][[:space:]]*version[[:space:]]*=' \
+    'private[[:space:]][[:space:]]*const[[:space:]][[:space:]]*val[[:space:]][[:space:]]*VERSION' \
+    'const[[:space:]][[:space:]]*val[[:space:]][[:space:]]*version[[:space:]]*='
+}
+
+get_yaml_patterns() {
+  printf '%s\n' \
+    'version:' \
+    'app_version:' \
+    'appVersion:' \
+    'VERSION:'
+}
+
+# Generic function to find version with given patterns
+find_version_with_patterns() {
+  local file="$1"
+  local pattern_func="$2"
+  
+  # Use command substitution and process substitution compatible with bash 3.2
+  local pattern
+  while IFS= read -r pattern; do
+    [[ -n "$pattern" ]] || continue
+    
+    local matching_line
+    matching_line=$(grep -m1 "$pattern" "$file" 2>/dev/null) || continue
+    
+    local version
+    version=$(extract_version "$matching_line")
+    
+    if [[ -n "$version" ]]; then
+      echo "$pattern|$matching_line"
+      return 0
+    fi
+  done < <("$pattern_func")
+  return 1
+}
+
+# Helper function to find version and return pattern|line (used by SET command only)
+find_version_with_pattern() {
+  local file="$1"
+  local filename
+  filename=$(basename "$file")
+  
+  u.debug "finding version with pattern for: $filename"
+  
+  case "$filename" in
+    *.sh|*.bash)
+      find_version_with_patterns "$file" get_shell_patterns
+      ;;
+    Package.swift|*.swift)
+      find_version_with_patterns "$file" get_swift_patterns
+      ;;
+    *.py)
+      find_version_with_patterns "$file" get_python_patterns
+      ;;
+    *.java)
+      find_version_with_patterns "$file" get_java_patterns
+      ;;
+    *.kt|*.kts)
+      find_version_with_patterns "$file" get_kotlin_patterns
+      ;;
+    package.json|*.json)
+      find_version_with_patterns "$file" get_json_patterns
+      ;;
+    *.yaml|*.yml)
+      find_version_with_patterns "$file" get_yaml_patterns
+      ;;
+    *)
+      find_version_with_patterns "$file" get_shell_patterns
+      ;;
+  esac
+  
+  # If no language patterns worked, try generic version search
+  local exit_code=$?
+  if [[ $exit_code -ne 0 ]]; then
+    u.debug "language patterns failed, trying generic version search"
+    local generic_line
+    generic_line=$(find_version_line "$file") || return 1
+    
+    local generic_version
+    generic_version=$(extract_version "$generic_line")
+    
+    if [[ -n "$generic_version" ]]; then
+      u.debug "found generic version: $generic_version"
+      echo "__SIMPLE_VERSION_FILE__|$generic_line"
+      return 0
+    fi
+  fi
+  
+  return $exit_code
+}
+
+_help() {
+  cat << EOF
+$(_version) - Universal version extraction and update toolkit
+
+USAGE:
+    $__APP get -f <file> [-p <pattern>]
+    $__APP set -f <file> <version> [-p <pattern>]
+
+COMMANDS:
+    get                Extract version from file
+    set                Update version in file
+
+OPTIONS:
+    -h, --help         Show this help
+    -v, --version      Show version
+    -f FILE            File to process (required, use - for stdin with get)
+    -p PATTERN         Custom pattern to search for (optional)
+
+AUTO-DETECTION SUPPORT:
+    When no pattern is specified:
+    
+    GET command: Uses generic search (finds any X.Y.Z pattern)
+    SET command: Auto-detects file types and tries appropriate patterns:
+
+    Shell (.sh/.bash):   # VERSION:, readonly __ID=, VERSION=, version=
+    Swift (.swift):      let version =, static let version =, let appVersion =
+    Python (.py):        __version__ =, version =, VERSION =
+    Java (.java):        String VERSION =, public static final String VERSION =
+    Kotlin (.kt/.kts):   const val VERSION =, val version =
+    JSON (.json):        "version", "app_version", "appVersion"
+    YAML (.yaml/.yml):   version:, app_version:, appVersion:
+    Unknown files:       Falls back to shell patterns, then simple version file
+
+EXAMPLES:
+    # Get version (generic search)
+    $__APP get -f script.sh                    # Finds any version pattern
+    $__APP get -f Main.java                    # Finds any version pattern
+    $__APP get -f package.json                 # Finds any version pattern
+    $__APP get -f version.txt                  # Simple version files (just "1.0.0")
+    
+    # Set version (auto-detection)
+    $__APP set -f script.sh 1.2.0             # Auto-detects shell patterns
+    $__APP set -f Main.java 2.0.0             # Auto-detects Java patterns
+    $__APP set -f App.kt 1.5.0                # Auto-detects Kotlin patterns
+    $__APP set -f package.json 3.0.0          # Auto-detects JSON patterns
+    $__APP set -f version.txt 1.5.0           # Updates simple version files
+    
+    # Custom patterns (for edge cases)
+    $__APP get -f config.yaml -p "app_version:"
+    $__APP set -f config.yaml -p "app_version:" 1.5.0
+    $__APP set -f Dockerfile -p "ENV VERSION" 2.0.0
+    
+    # Stdin support (get only)
+    cat script.sh | $__APP get -f -            # Generic search via stdin
+    echo "1.2.3" | $__APP get -f -             # Simple version extraction
+    
+    # Common workflows
+    VERSION=\$($__APP get -f version.txt)        # Get current version  
+    $__APP set -f version.txt 1.2.3            # Update version
+    $__APP set -f package.json \$VERSION        # Sync versions across files
+
+NOTES:
+    - Supports semantic versions (X.Y.Z or X.Y.Z-prerelease)
+    - GET uses generic search (fast, works with any file type)
+    - SET preserves file permissions and uses atomic updates
+    - SET auto-detects patterns for precise updates
+    - Use custom patterns for unsupported file types or edge cases
+
+EOF
+}
+
+_version() { 
+  sed -n 's/^# VERSION:[[:space:]]*\(.*\)/\1/p' "$__APPFILE" 2>/dev/null || echo "unknown"
+}
+
+_cleanup() { 
+  u.debug "cleanup"
+}
+##] functions
+
+##) app
+
+##( core
+_boot() {
+  printf '%s\n' "${__OS[@]}" | grep -Fxq "$(u.os)" || u.die "unsupported OS: $(u.os) [required: ${__OS[*]}]"
+  local _tool; for _tool in "${__APP_DEPS[@]:-}"; do u.require "$_tool"; done
+}
+
+trap _cleanup EXIT
+if [[ "${BASH_SOURCE[0]:-}" == "${0}" ]]; then
+  _boot
+  _main "$@"
+fi
+##) core

@@ -1,0 +1,574 @@
+#!/usr/bin/env bash
+##( header
+# --------------------------------------------------------------------
+# sem-ver - Semantic version bumping and management
+# 
+# A powerful tool for bumping and comparing version strings according 
+# to the Semantic Versioning 2.0.0 specification. Supports all standard 
+# versioning workflows from simple patches to complex pre-release management.
+# --------------------------------------------------------------------
+# AUTHOR: Budha <budhash@gmail.com>
+# VERSION: 1.0.0
+# LICENSE: MIT
+# --------------------------------------------------------------------
+##) header
+
+##( configuration
+set -eEuo pipefail; IFS=$'\n\t'  # fail fast, secure IFS
+##) configuration
+
+##( metadata
+readonly __ID="basic-1.0.0"
+readonly __APP="$(basename "${BASH_SOURCE[0]:-}")"
+readonly __APPFILE="${BASH_SOURCE[0]}"
+readonly __APPDIR="$(s="${BASH_SOURCE[0]}"; while [[ -h "$s" ]]; do 
+  d="$(cd -P "$(dirname "$s")" && pwd)"; s="$(readlink "$s")"; [[ "$s" != /* ]] && s="$d/$s"; done; cd -P "$(dirname "$s")" && pwd)"
+__DBG=${DEBUG:-false}
+##) metadata
+
+##( globals
+
+##[ colors
+_RST=$'\033[0m' _GRN=$'\033[0;32m' _YLW=$'\033[0;33m' _RED=$'\033[0;31m' _BLU=$'\033[0;34m'
+[[ -n "${NO_COLOR:-}" || ! -t 1 ]] && _RST='' _GRN='' _YLW='' _RED='' _BLU=''
+##] colors
+
+##[ error
+# general failure / bad usage / dependency not found / unsupported OS / not found / permission error / not connected
+readonly _E=1 _E_USG=2 _E_DEP=3 _E_OS=4 _E_NF=5 _E_NP=6 _E_NC=7  
+##] error
+
+##) globals
+
+##( helpers
+
+##[ system
+u.os() { case "${OSTYPE:-}" in darwin*) echo mac;; linux*) echo linux;; *) echo unknown;; esac; }
+u.die() { u.error "$@"; exit $_E; }
+u.require() { 
+  local tool="${1:-}"
+  [[ -z "$tool" ]] && { u.error "missing dependency name"; exit $_E_DEP; }
+  if [[ "$tool" == /* ]] || [[ "$tool" == ./* ]] || [[ "$tool" == ../* ]]; then
+    [[ -x "$tool" ]] || { u.error "missing dependency: $tool"; exit $_E_DEP; } # Absolute or relative path - test directly
+  else
+    command -v "$tool" >/dev/null || { u.error "missing dependency: $tool"; exit $_E_DEP; }
+  fi
+}
+##] system
+
+##[ logging
+u.log() {
+  local _l="info " _co="$_GRN"
+  [[ "${1:-}" == "-l" ]] && { _l="${2:-info}"; shift 2; }
+  case "$_l" in warn) _co="$_YLW";; error) _co="$_RED";; debug) _co="$_BLU"; [[ "$__DBG" != true ]] && return;; esac
+  printf "${_co}[%s]${_RST} %s\n" "$_l" "$*" >&2
+  return 0
+}
+u.info() { u.log -l "info " "$@"; }
+u.warn() { u.log -l "warn " "$@"; }
+u.error() { u.log -l "error" "$@"; }
+u.debug() { u.log -l "debug" "$@"; }
+##] logging
+
+##) helpers
+
+##( app
+
+##[ config
+readonly __NAME=template
+readonly __OS=(mac linux)
+readonly __APP_DEPS=(cut sort)
+##] config
+
+##[ constants
+# SemVer regex pattern for validation
+readonly SEMVER_PATTERN='^([0-9]+)\.([0-9]+)\.([0-9]+)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
+##] constants
+
+##[ validation
+_validate_bump_args() {
+  local bump_type="$1" version="$2" pre_release_id="$3"
+  
+  # Validate bump type
+  case "$bump_type" in
+    major|minor|patch|pre) ;;
+    *) u.error "Invalid bump type '$bump_type'. Must be major, minor, patch, or pre"; return 1 ;;
+  esac
+  
+  # Validate version format
+  _is_valid_semver "$version" || return 1
+  
+  # Validate pre-release requirement
+  if [[ "$bump_type" == "pre" && -z "$pre_release_id" ]]; then
+    u.error "Pre-release identifier (-p) is required when using 'pre' bump type"
+    return 1
+  fi
+  
+  return 0
+}
+
+_validate_compare_args() {
+  local operator="$1" v1="$2" v2="$3"
+  
+  # Validate operator
+  case "$operator" in
+    eq|gt|lt) ;;
+    *) u.error "Invalid operator '$operator'. Must be eq, gt, or lt"; return 1 ;;
+  esac
+  
+  # Validate both versions
+  _is_valid_semver "$v1" || return 1
+  _is_valid_semver "$v2" || return 1
+  
+  return 0
+}
+##] validation
+
+##[ functions
+_main() {
+  # Handle global options first
+  local _opt _help=false _version=false
+  while getopts "hv" _opt; do
+    case $_opt in
+      h) _help=true;;
+      v) _version=true;;
+      \?) u.error "unknown option: -${OPTARG:-}"; exit $_E_USG;;
+    esac
+  done
+  shift $((OPTIND-1))
+
+  [[ "$_help" == true ]] && { _help; exit 0; }
+  [[ "$_version" == true ]] && { _version; exit 0; }
+  
+  # Require a subcommand
+  if [[ $# -eq 0 ]]; then
+    u.error "Missing subcommand"
+    _help
+    exit $_E_USG
+  fi
+  
+  local subcommand="$1"
+  shift
+  
+  case "$subcommand" in
+    bump) _bump_version "$@" ;;
+    compare) _compare_versions "$@" ;;
+    validate) _validate_version "$@" ;;
+    parse) _parse_version "$@" ;;
+    # Shorthand comparison operators
+    gt|lt|eq) _compare_versions -c "$subcommand" "$@" ;;
+    # Shorthand bump types
+    major|minor|patch|pre) _bump_version -b "$subcommand" "$@" ;;
+    *)
+      u.error "Unknown subcommand: '$subcommand'"
+      _help
+      exit $_E_USG
+      ;;
+  esac
+}
+
+_bump_version() {
+  local bump_type="" pre_release_id=""
+  
+  # Reset OPTIND for this function
+  OPTIND=1
+  while getopts ":b:p:" opt; do
+    case ${opt} in
+      b) bump_type=$OPTARG ;;
+      p) pre_release_id=$OPTARG ;;
+      \?) u.error "Invalid option for 'bump': -$OPTARG"; _help_bump; exit $_E_USG ;;
+      :) u.error "Option -$OPTARG requires an argument"; _help_bump; exit $_E_USG ;;
+    esac
+  done
+  shift $((OPTIND - 1))
+
+  # If no -b flag provided, check if first arg is a bump type
+  if [[ -z "$bump_type" && $# -gt 0 ]]; then
+    case "$1" in
+      major|minor|patch|pre) bump_type="$1"; shift ;;
+    esac
+  fi
+
+  if [[ -z "$bump_type" ]]; then 
+    u.error "Missing bump type. Use -b <type> or specify type directly"
+    _help_bump; exit $_E_USG
+  fi
+  
+  if [[ $# -ne 1 ]]; then 
+    u.error "Missing version argument"
+    _help_bump; exit $_E_USG
+  fi
+
+  local version="$1"
+  
+  # Single validation call instead of separate function
+  if ! _validate_bump_args "$bump_type" "$version" "$pre_release_id"; then
+    exit $_E_USG
+  fi
+
+  _calculate_bump "$bump_type" "$pre_release_id" "$version"
+}
+
+_calculate_bump() {
+  local bump_type="$1" pre_release_id="$2" version="$3"
+  local core_version="" version_no_build=""
+
+  u.debug "Bump calculation: $bump_type '$version'"
+
+  # Strip build metadata first (anything after +)
+  version_no_build="${version%%+*}"
+  
+  # Extract core version (MAJOR.MINOR.PATCH)
+  if [[ "$version_no_build" =~ ^([0-9]+\.[0-9]+\.[0-9]+) ]]; then
+    core_version=${BASH_REMATCH[1]}
+  else
+    u.error "Invalid version format: '$version'"
+    exit $_E_USG
+  fi
+
+  local new_version=""
+  if [[ "$bump_type" == "pre" ]]; then
+    # Workflow: Iterate on an existing pre-release. Core version does not change.
+    new_version="$core_version-$pre_release_id"
+  else
+    # Workflow: Bump core version, optionally add pre-release tag.
+    local major minor patch
+    major=$(echo "$core_version" | cut -d. -f1)
+    minor=$(echo "$core_version" | cut -d. -f2)
+    patch=$(echo "$core_version" | cut -d. -f3)
+
+    # Check if we're finalizing a pre-release (current version has pre-release, no -p flag)
+    if [[ "$version_no_build" =~ ^[0-9]+\.[0-9]+\.[0-9]+- ]] && [[ -z "$pre_release_id" ]]; then
+      # We're finalizing - use current core version without incrementing
+      new_version="$core_version"
+      u.debug "Finalizing pre-release: $version_no_build -> $new_version"
+    else
+      # Normal bump
+      case "$bump_type" in
+        major) major=$((major + 1)); minor=0; patch=0 ;;
+        minor) minor=$((minor + 1)); patch=0 ;;
+        patch) patch=$((patch + 1)) ;;
+      esac
+      local bumped_core="$major.$minor.$patch"
+
+      if [[ -n "$pre_release_id" ]]; then
+        new_version="$bumped_core-$pre_release_id"
+      else
+        new_version="$bumped_core"
+      fi
+    fi
+  fi
+  
+  u.debug "Result: $new_version"
+  echo "$new_version"
+}
+
+_compare_versions() {
+  local operator=""
+  
+  # Reset OPTIND for this function
+  OPTIND=1
+  while getopts ":c:" opt; do
+    case ${opt} in
+      c) operator=$OPTARG ;;
+      \?) u.error "Invalid option for 'compare': -$OPTARG"; _help_compare; exit $_E_USG ;;
+      :) u.error "Option -$OPTARG requires an argument"; _help_compare; exit $_E_USG ;;
+    esac
+  done
+  shift $((OPTIND - 1))
+
+  if [[ -z "$operator" ]]; then 
+    u.error "Missing comparison operator. Use -c <op> or specify operator directly"
+    _help_compare
+    exit $_E_USG
+  fi
+  
+  if [[ $# -ne 2 ]]; then 
+    u.error "Comparison requires exactly two version arguments"
+    _help_compare
+    exit $_E_USG
+  fi
+
+  local v1="${1#v}" v2="${2#v}"  # Strip optional 'v' prefix
+  
+  # Validate arguments
+  _validate_compare_args "$operator" "$v1" "$v2" || exit $_E_USG
+
+  local result
+  result=$(_version_compare "$v1" "$v2")
+  u.debug "Comparing '$v1' $operator '$v2' -> result=$result"
+
+  case "$operator" in
+    gt) if (( result == 1 )); then exit 0; fi ;;
+    lt) if (( result == -1 )); then exit 0; fi ;;
+    eq) if (( result == 0 )); then exit 0; fi ;;
+  esac
+
+  exit 1
+}
+
+_validate_version() {
+  if [[ $# -ne 1 ]]; then
+    u.error "Validate requires exactly one version argument"
+    exit $_E_USG
+  fi
+  
+  local version="${1#v}"  # Strip optional 'v' prefix
+  
+  if _is_valid_semver "$version"; then
+    u.info "Valid SemVer: $version"
+    exit 0
+  else
+    exit 1
+  fi
+}
+
+_parse_version() {
+  if [[ $# -ne 1 ]]; then
+    u.error "Parse requires exactly one version argument"
+    exit $_E_USG
+  fi
+  
+  local version="${1#v}"  # Strip optional 'v' prefix
+  
+  if ! _is_valid_semver "$version"; then
+    exit 1
+  fi
+  
+  # Parse components
+  local core_version pre_release build_metadata
+  if [[ "$version" =~ ^([0-9]+\.[0-9]+\.[0-9]+)(-[^+]*)?(\+.*)?$ ]]; then
+    core_version="${BASH_REMATCH[1]}"
+    pre_release="${BASH_REMATCH[2]#-}"  # Remove leading dash
+    build_metadata="${BASH_REMATCH[3]#+}"  # Remove leading plus
+    
+    local major minor patch
+    major=$(echo "$core_version" | cut -d. -f1)
+    minor=$(echo "$core_version" | cut -d. -f2)
+    patch=$(echo "$core_version" | cut -d. -f3)
+    
+    echo "Version: $version"
+    echo "Major: $major"
+    echo "Minor: $minor"
+    echo "Patch: $patch"
+    [[ -n "$pre_release" ]] && echo "Pre-release: $pre_release"
+    [[ -n "$build_metadata" ]] && echo "Build: $build_metadata"
+  fi
+  
+  return 0  # Ensure function always exits successfully after parsing
+}
+
+_is_valid_semver() {
+  local version="$1"
+  if [[ ! "$version" =~ $SEMVER_PATTERN ]]; then
+    # Provide specific feedback
+    case "$version" in
+      *.*.*.*) u.error "Too many version parts in '$version'. Expected MAJOR.MINOR.PATCH" ;;
+      *.* | *) 
+        if [[ "$version" =~ ^[0-9]+\.[0-9]+$ ]]; then
+          u.error "Missing patch version in '$version'. Expected MAJOR.MINOR.PATCH"
+        elif [[ -z "$version" ]]; then
+          u.error "Empty version string"
+        else
+          u.error "Invalid version format '$version'. Must match MAJOR.MINOR.PATCH[-PRE][+BUILD]"
+        fi
+        ;;
+    esac
+    return 1
+  fi
+  return 0
+}
+
+# Portable version comparison for core versions (no sort -V dependency)
+_version_core_compare() {
+  local v1="$1" v2="$2"
+  local v1_parts v2_parts
+  
+  IFS='.' read -r -a v1_parts <<< "$v1"
+  IFS='.' read -r -a v2_parts <<< "$v2"
+  
+  for i in 0 1 2; do
+    local n1="${v1_parts[i]:-0}" n2="${v2_parts[i]:-0}"
+    # Use printf for safe number parsing
+    local num1 num2
+    num1=$(printf '%d' "$n1" 2>/dev/null) || return 1
+    num2=$(printf '%d' "$n2" 2>/dev/null) || return 1
+    
+    if (( num1 > num2 )); then 
+      echo "1"; return
+    elif (( num1 < num2 )); then 
+      echo "-1"; return
+    fi
+  done
+  
+  echo "0"
+}
+
+_version_compare() {
+  local v1="$1" v2="$2"
+  
+  u.debug "Version compare: '$v1' vs '$v2'"
+  
+  # Strip build metadata (everything after +) as per SemVer spec
+  v1="${v1%%+*}"
+  v2="${v2%%+*}"
+  
+  local v1_core="${v1%%-*}" v2_core="${v2%%-*}"
+  local v1_pre="${v1#"$v1_core"}" v2_pre="${v2#"$v2_core"}"
+
+  local result=0
+
+  # Compare core versions first
+  if [[ "$v1_core" != "$v2_core" ]]; then
+    result=$(_version_core_compare "$v1_core" "$v2_core")
+  elif [[ "$v1_pre" != "$v2_pre" ]]; then
+    # Core versions are equal, compare pre-release
+    if [[ -z "$v1_pre" ]]; then 
+      result=1  # Final release > pre-release
+    elif [[ -z "$v2_pre" ]]; then 
+      result=-1  # Pre-release < final release
+    else
+      # Both have pre-release, compare them
+      local v1_pre_clean="${v1_pre:1}" v2_pre_clean="${v2_pre:1}"  # Remove leading dash
+      result=$(_compare_prerelease "$v1_pre_clean" "$v2_pre_clean")
+    fi
+  fi
+
+  u.debug "Result: $result"
+  echo "$result"
+}
+
+_compare_prerelease() {
+  local pre1="$1" pre2="$2"
+  
+  u.debug "Pre-release compare: '$pre1' vs '$pre2'"
+  
+  IFS='.' read -r -a parts1 <<< "$pre1"
+  IFS='.' read -r -a parts2 <<< "$pre2"
+  
+  local len1=${#parts1[@]} len2=${#parts2[@]}
+  local limit=$(( len1 < len2 ? len1 : len2 ))
+  
+  for (( i=0; i<limit; i++ )); do
+    local p1="${parts1[i]}" p2="${parts2[i]}"
+    [[ "$p1" == "$p2" ]] && continue
+    
+    local p1_is_num=false p2_is_num=false
+    [[ "$p1" =~ ^[0-9]+$ ]] && p1_is_num=true
+    [[ "$p2" =~ ^[0-9]+$ ]] && p2_is_num=true
+    
+    if $p1_is_num && $p2_is_num; then
+      # Both numeric, compare numerically using safe parsing
+      local num1 num2
+      num1=$(printf '%d' "$p1" 2>/dev/null) || { echo "-1"; return; }
+      num2=$(printf '%d' "$p2" 2>/dev/null) || { echo "1"; return; }
+      
+      if (( num1 > num2 )); then echo "1"; return
+      else echo "-1"; return; fi
+    elif $p1_is_num; then
+      echo "-1"; return  # Numeric < non-numeric
+    elif $p2_is_num; then
+      echo "1"; return   # Non-numeric > numeric
+    else
+      # Both non-numeric, compare lexically
+      if [[ "$p1" > "$p2" ]]; then echo "1"; return
+      else echo "-1"; return; fi
+    fi
+  done
+  
+  # All compared parts equal, longer version wins
+  if (( len1 > len2 )); then echo "1"
+  elif (( len1 < len2 )); then echo "-1"
+  else echo "0"; fi
+}
+
+_help() {
+  cat << EOF
+$(_version) - Semantic version bumping and management
+
+USAGE:
+    $__APP <command> [OPTIONS] [ARGS...]
+
+COMMANDS:
+    bump -b <type> [-p <id>] <version>   Bump a version string
+    compare -c <op> <v1> <v2>            Compare two versions
+    validate <version>                   Validate version format
+    parse <version>                      Parse version components
+    
+    Shorthand commands:
+    major|minor|patch|pre <version>      Direct bump commands
+    gt|lt|eq <v1> <v2>                   Direct comparison commands
+
+BUMP OPTIONS:
+    -b <type>     Bump type: major, minor, patch, pre
+    -p <id>       Pre-release identifier (e.g., alpha.1, rc.2)
+
+COMPARE OPTIONS:
+    -c <op>       Comparison: gt (>), lt (<), eq (=)
+
+GLOBAL OPTIONS:
+    -h            Show this help
+    -v            Show version
+
+EXAMPLES:
+    # Bump versions
+    $__APP bump -b patch 1.2.3              # -> 1.2.4
+    $__APP bump patch 1.2.3                 # -> 1.2.4 (shorthand)
+    $__APP bump -b minor -p alpha.1 1.2.3   # -> 1.3.0-alpha.1
+    $__APP bump -b pre -p alpha.2 1.3.0-alpha.1  # -> 1.3.0-alpha.2
+
+    # Compare versions
+    $__APP compare -c gt 2.0.0 1.9.9        # exit 0 (true)
+    $__APP gt 2.0.0 1.9.9                   # exit 0 (shorthand)
+    
+    # Utilities
+    $__APP validate 1.2.3-rc.1              # validate format
+    $__APP parse 1.2.3-rc.1                 # show components
+
+EOF
+}
+
+_help_bump() {
+  cat << EOF
+USAGE: $__APP bump -b <type> [-p <id>] <version>
+       $__APP <type> [-p <id>] <version>
+
+Bump type must be: major, minor, patch, or pre
+Use -p to add/update pre-release identifier.
+
+EOF
+}
+
+_help_compare() {
+  cat << EOF
+USAGE: $__APP compare -c <op> <v1> <v2>
+       $__APP <op> <v1> <v2>
+
+Operator must be: gt (>), lt (<), or eq (=)
+
+EOF
+}
+
+_version() { 
+  sed -n 's/^# VERSION:[[:space:]]*\(.*\)/\1/p' "$__APPFILE" 2>/dev/null || echo "1.0.0"
+}
+
+_cleanup() { 
+  u.debug "cleanup"
+}
+##] functions
+
+##) app
+
+##( core
+_boot() {
+  printf '%s\n' "${__OS[@]}" | grep -Fxq "$(u.os)" || u.die "unsupported OS: $(u.os) [required: ${__OS[*]}]"
+  local _tool; for _tool in "${__APP_DEPS[@]:-}"; do u.require "$_tool"; done
+}
+
+trap _cleanup EXIT
+if [[ "${BASH_SOURCE[0]:-}" == "${0}" ]]; then
+  _boot
+  _main "$@"
+fi
+##) core
