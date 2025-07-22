@@ -470,7 +470,7 @@ A: Yes! It's your script. Keep custom code in the `##( app` section to preserve 
 A: Basic (~200 lines) provides essential utilities for simple scripts. Enhanced (~400+ lines) includes 60+ utility functions for complex tools, JSON processing, and HTTP utilities.
 
 **Q: Is bash 3.2 supported?**  
-A: 3.2  will be supported soon. Note: macOS ships with bash 3.2 due to licensing. Supporting it ensures scripts work everywhere without requiring users to upgrade bash.
+A: 3.2  will be supported soon. (Note: macOS ships with bash 3.2 due to licensing. Supporting it ensures scripts work everywhere without requiring users to upgrade bash)
 
 **Q: How do updates work?**  
 A: `zap-sh upgrade` downloads the latest binary and templates. `zap-sh update -f script.sh` updates framework sections while preserving your app code.
