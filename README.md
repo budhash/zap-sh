@@ -11,7 +11,7 @@
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/budhash/zap-sh)
 [![CI](https://github.com/budhash/zap-sh/workflows/CI/badge.svg)](https://github.com/budhash/zap-sh/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Bash 3.2+](https://img.shields.io/badge/bash-3.2+-blue.svg)](https://www.gnu.org/software/bash/)
+[![Bash 4.0+](https://img.shields.io/badge/bash-4.0+-blue.svg)](https://www.gnu.org/software/bash/)
 [![Language](https://img.shields.io/github/languages/top/budhash/zap-sh)](https://github.com/budhash/zap-sh)
 [![Issues](https://img.shields.io/github/issues/budhash/zap-sh)](https://github.com/budhash/zap-sh/issues)
 
@@ -51,7 +51,7 @@ zap-sh generates bash scripts from templates, similar to how cookiecutter works 
 - Interactive setup wizard for new projects
 - Built-in license templates (MIT, Apache, GPL)
 - Your code stays safe during framework updates
-- Works on macOS and Linux
+- Works on Linux (macOS coming soon)
 - Automatic updates from GitHub
 
 ## Quick Start
@@ -65,7 +65,7 @@ chmod +x ~/.local/bin/zap-sh
 zap-sh init -w
 
 # Or quick generation
-zap-sh init my-script --author="Your Name" --email="you@example.com"
+zap-sh init my-script --author="Your Name" --email="you@example.com" --license="mit"
 
 # Start coding in the ##( app section
 ./my-script.sh --help
@@ -379,7 +379,7 @@ git push origin main v1.0.0
 ```
 
 **What happens automatically**:
-- GitHub Actions runs full CI validation on Ubuntu and macOS
+- GitHub Actions runs full CI validation
 - Release archive (`zap-sh-1.0.0.zip`) is created from `manifest.txt`
 - GitHub Release is published with changelog from README
 - Release assets are uploaded and ready for download
@@ -412,7 +412,7 @@ ZAP_DEV=true zap-sh init dev-test
 
 ## Requirements
 
-- **bash** 3.2+ (macOS) or 4+ (Linux)
+- **bash**  4+ (Linux) - (3.2 coming soon)
 - **curl** (for template downloads and updates)
 - **Standard Unix tools**: `sed`, `grep`, `find`
 
@@ -469,8 +469,8 @@ A: Yes! It's your script. Keep custom code in the `##( app` section to preserve 
 **Q: What's the difference between basic and enhanced templates?**  
 A: Basic (~200 lines) provides essential utilities for simple scripts. Enhanced (~400+ lines) includes 60+ utility functions for complex tools, JSON processing, and HTTP utilities.
 
-**Q: Why support bash 3.2?**  
-A: macOS ships with bash 3.2 due to licensing. Supporting it ensures scripts work everywhere without requiring users to upgrade bash.
+**Q: Is bash 3.2 supported?**  
+A: 3.2  will be supported soon. (Note: macOS ships with bash 3.2 due to licensing. Supporting it ensures scripts work everywhere without requiring users to upgrade bash)
 
 **Q: How do updates work?**  
 A: `zap-sh upgrade` downloads the latest binary and templates. `zap-sh update -f script.sh` updates framework sections while preserving your app code.
@@ -509,5 +509,4 @@ Generated scripts inherit their license from the template used (configurable via
 - **Enhanced Template**: Comprehensive utilities with 60+ functions (~400+ lines)
 
 #### Compatibility
-- Cross-platform support for macOS (Bash 3.2+) and Linux (Bash 4+)
 - No runtime dependencies for generated scripts
