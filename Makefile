@@ -179,17 +179,29 @@ sync-version: check-tools
 		echo "$(BLUE)Source version: $$VERSION$(NC)"; \
 		echo "$(YELLOW)Updating zap-sh...$(NC)"; \
 		./.github/scripts/ver-kit set -f zap-sh "$$VERSION" >/dev/null; \
-		# Disable template version update
-		# echo "$(YELLOW)Updating basic template...$(NC)"; \
-		# ./.github/scripts/ver-kit set -f templates/basic.sh -p "readonly.*__ID=" "$$VERSION" >/dev/null; \
-		# echo "$(YELLOW)Updating enhanced template...$(NC)"; \
-		# ./.github/scripts/ver-kit set -f templates/enhanced.sh -p "readonly.*__ID=" "$$VERSION" >/dev/null; \
 		echo "$(GREEN)✅ All files synced to $$VERSION$(NC)"; \
 	else \
 		echo "$(RED)❌ Could not read version from version.txt$(NC)"; \
 		echo "$(YELLOW)Create version.txt with a version like: echo '1.0.0' > version.txt$(NC)"; \
 		exit 1; \
 	fi
+
+sync-templates: check-tools
+	@echo "$(YELLOW)Syncing version files from version.txt...$(NC)"
+	@VERSION="$$(./.github/scripts/ver-kit get -f version.txt 2>/dev/null)"; \
+	if [ -n "$$VERSION" ]; then \
+		echo "$(BLUE)Source version: $$VERSION$(NC)"; \
+		echo "$(YELLOW)Updating basic template...$(NC)"; \
+		./.github/scripts/ver-kit set -f templates/basic.sh -p "readonly.*__ID=" "$$VERSION" >/dev/null; \
+		echo "$(YELLOW)Updating enhanced template...$(NC)"; \
+		./.github/scripts/ver-kit set -f templates/enhanced.sh -p "readonly.*__ID=" "$$VERSION" >/dev/null; \
+		echo "$(GREEN)✅ All templates synced to $$VERSION$(NC)"; \
+	else \
+		echo "$(RED)❌ Could not read version from version.txt$(NC)"; \
+		echo "$(YELLOW)Create version.txt with a version like: echo '1.0.0' > version.txt$(NC)"; \
+		exit 1; \
+	fi
+
 
 ## Update version files and prepare for release (make bump-version VERSION=1.0.0)
 bump-version: check-tools ci
