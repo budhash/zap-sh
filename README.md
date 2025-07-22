@@ -412,7 +412,7 @@ ZAP_DEV=true zap-sh init dev-test
 
 ## Requirements
 
-- **bash**  4+ (Linux) - (3.2+ coming soon)
+- **bash**  4+ (Linux) - (3.2x coming soon)
 - **curl** (for template downloads and updates)
 - **Standard Unix tools**: `sed`, `grep`, `find`
 
