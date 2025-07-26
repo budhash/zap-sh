@@ -498,9 +498,11 @@ _args() {
   fi
 
   # Output positional arguments
-  for _i in "${_positional[@]}"; do
-    printf '__ARG_FNL:%s\n' "$_i"
-  done
+  if [[ ${#_positional[@]} -gt 0 ]]; then
+    for _i in "${_positional[@]}"; do
+      printf '__ARG_FNL:%s\n' "$_i"
+    done
+  fi
 }
 
 _boot() {
