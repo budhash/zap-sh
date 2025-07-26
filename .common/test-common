@@ -81,7 +81,12 @@ assert_eq() {
 assert_ok() {
   _TESTS_RUN=$((_TESTS_RUN + 1))
   local desc="${*: -1}"
+  
+  # Save and restore IFS to handle commands properly
+  local OLD_IFS="$IFS"
+  IFS=$' \t\n'
   local cmd=("${@:1:$#-1}")
+  IFS="$OLD_IFS"
   
   if "${cmd[@]}" >/dev/null 2>&1; then
     printf "  ${_GRN}✓${_RST} %s\n" "$desc"
@@ -95,7 +100,12 @@ assert_ok() {
 assert_fail() {
   _TESTS_RUN=$((_TESTS_RUN + 1))
   local desc="${*: -1}"
+  
+  # Save and restore IFS to handle commands properly
+  local OLD_IFS="$IFS"
+  IFS=$' \t\n'
   local cmd=("${@:1:$#-1}")
+  IFS="$OLD_IFS"
   
   set +e
   "${cmd[@]}" >/dev/null 2>&1
