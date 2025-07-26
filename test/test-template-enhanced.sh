@@ -18,7 +18,7 @@ set -o pipefail
 
 ##( setup
 # Source the common test framework
-source .common/test-common
+source test/.common/test-common
 
 # Configure for advanced template
 readonly TEMPLATE_FILE="templates/enhanced.sh"

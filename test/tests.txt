@@ -1,0 +1,8 @@
+# Test configuration file for zap-sh
+# Lists test files to be executed by test-driver
+# One test file per line, paths relative to test directory
+
+test-zap.sh
+test-template-basic.sh
+test-template-enhanced.sh
+test-bash32-compat.sh

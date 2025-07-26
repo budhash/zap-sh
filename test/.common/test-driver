@@ -29,15 +29,40 @@ SKIPPED_LIST=()
 
 # Get script directory and project root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+TEST_DIR="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$(dirname "$TEST_DIR")"
 
-# Test suite definitions: "test_file:description"
-readonly TEST_SUITES=(
-    "test-template-basic.sh:Basic Template Tests"
-    "test-template-enhanced.sh:Enhanced Template Tests"
-    "test-zap.sh:Zap Generator Tests"
-    # "test-bash32-compat.sh:Bash 3.2 Compatibility Tests"  # Only run manually on Bash 3.x systems
-)
+# Load test suite definitions from tests.txt
+TEST_SUITES=()
+TESTS_FILE="$TEST_DIR/tests.txt"
+
+# Check if tests.txt exists
+if [[ ! -f "$TESTS_FILE" ]]; then
+    echo "Error: Test configuration file not found: $TESTS_FILE" >&2
+    exit 1
+fi
+
+# Read test files from tests.txt
+while IFS= read -r line; do
+    # Skip empty lines and comments
+    [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+    
+    # Trim whitespace
+    line=$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    
+    # Extract test name and description from filename
+    test_name="$line"
+    test_desc="${line%.sh}"  # Remove .sh extension
+    test_desc="${test_desc#test-}"  # Remove test- prefix
+    # Replace hyphens with spaces (using sed for Bash 3.2 compatibility)
+    # shellcheck disable=SC2001
+    test_desc=$(echo "$test_desc" | sed 's/-/ /g')
+    # Capitalize first letter of each word (Bash 3.2 compatible)
+    test_desc=$(echo "$test_desc" | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2))}1')
+    test_desc="$test_desc Tests"
+    
+    TEST_SUITES+=("$test_name:$test_desc")
+done < "$TESTS_FILE"
 ##) globals
 
 ##( helpers
@@ -104,7 +129,7 @@ print_summary() {
 run_test_suite() {
     local test_name=$1
     local test_desc=$2
-    local test_file="$PROJECT_ROOT/$test_name"
+    local test_file="$TEST_DIR/$test_name"
 
     echo
     echo "----------------------------------------------"
@@ -129,7 +154,7 @@ run_test_suite() {
     # Run the test suite
     print_status "INFO" "Running $test_desc..."
     
-    if (cd "$PROJECT_ROOT" && "./$test_name"); then
+    if (cd "$PROJECT_ROOT" && "$test_file"); then
         print_status "PASS" "$test_desc completed successfully"
         PASSED_TESTS=$((PASSED_TESTS + 1))
         PASSED_LIST+=("$test_desc")
