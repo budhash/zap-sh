@@ -33,10 +33,9 @@ jobs:
           - os: ubuntu-latest
             bash-version: "4+"
             description: "Ubuntu (Bash 4+)"
-          # Temporarily disabled - macOS tests taking too long
-          # - os: macos-latest
-          #   bash-version: "3.2+"
-          #   description: "macOS (Bash 3.2+)"
+          - os: macos-latest
+            bash-version: "3.2+"
+            description: "macOS (Bash 3.2+)"
 
     steps:
       - name: Checkout
