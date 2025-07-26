@@ -24,15 +24,6 @@ source .common/test-common
 readonly TEMPLATE_FILE="templates/enhanced.sh"
 readonly TEMPLATE_NAME="Enhanced"
 
-# Debug: Show current directory and file status
-echo "[DEBUG] Current directory: $(pwd)"
-echo "[DEBUG] TEMPLATE_FILE: $TEMPLATE_FILE"
-echo "[DEBUG] File exists: $(test -f "$TEMPLATE_FILE" && echo "yes" || echo "no")"
-echo "[DEBUG] File size: $(ls -la "$TEMPLATE_FILE" 2>/dev/null | awk '{print $5}' || echo "N/A")"
-echo "[DEBUG] First 5 lines:"
-head -5 "$TEMPLATE_FILE" 2>/dev/null || echo "[DEBUG] Could not read file"
-echo "[DEBUG] ---"
-
 # Override tool settings for the common framework
 NAME="enhanced"
 TOOL="$TEMPLATE_FILE"
