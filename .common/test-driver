@@ -36,6 +36,7 @@ readonly TEST_SUITES=(
     "test-template-basic.sh:Basic Template Tests"
     "test-template-enhanced.sh:Enhanced Template Tests"
     "test-zap.sh:Zap Generator Tests"
+    "test-bash32-compat.sh:Bash 3.2 Compatibility Tests"
 )
 ##) globals
 

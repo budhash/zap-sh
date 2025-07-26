@@ -175,7 +175,7 @@ u.array_map() {
 ##}
 ##{
 ##@ filters an array using a callback function that returns 0 for elements to keep
-##: u.array_filter <callback> <array_elements...> -> is_even() { (( $1 % 2 == 0 )); }; mapfile -t e < <(u.array_filter "is_even" 1 2 3 4)
+##: u.array_filter <callback> <array_elements...> -> is_even() { (( $1 % 2 == 0 )); }; e=($(u.array_filter "is_even" 1 2 3 4))
 u.array_filter() {
     local _callback="${1:-}" _i
     [[ -n "$_callback" ]] || { u.error "filter callback function required"; return $_E_USG; }

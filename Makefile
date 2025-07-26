@@ -82,6 +82,21 @@ test:
 		exit 1; \
 	fi
 
+## Run tests with system Bash (3.2 on macOS)
+test-bash3:
+	@echo "$(YELLOW)Running tests with system Bash (/bin/bash)...$(NC)"
+	@echo "$(BLUE)Bash version: $$(/bin/bash --version | head -1)$(NC)"
+	@if [ -f .common/test-driver ]; then \
+		chmod +x .common/test-driver && /bin/bash .common/test-driver; \
+	else \
+		echo "$(RED)❌ .common/test-driver not found$(NC)"; \
+		exit 1; \
+	fi
+
+## Run tests with both system and modern Bash
+test-all: test-bash3 test
+	@echo "$(GREEN)✅ All Bash version tests completed$(NC)"
+
 ## Run shellcheck linting on all scripts
 lint: lint-main lint-tests
 	@echo "$(GREEN)✅ All linting completed$(NC)"
