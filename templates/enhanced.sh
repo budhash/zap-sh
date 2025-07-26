@@ -20,7 +20,7 @@
 # Type "{{app}} -h" for usage guidelines.
 # --------------------------------------------------------------------
 # __TEMPLATE__: https://github.com/budhash/zap-sh/blob/main/templates/enhanced.sh
-# __ID__: enhanced-0.7.0
+# __ID__: enhanced-1.0.0
 # --------------------------------------------------------------------
 ##) header
 
@@ -35,7 +35,7 @@ IFS=$'\n\t'     # Secure IFS
 ##( metadata
 readonly __APP="$(basename "${BASH_SOURCE[0]:-}")"
 readonly __APPFILE="${BASH_SOURCE[0]:-}"
-readonly __APPDIR="$(s="${BASH_SOURCE[0]:-}"; while [[ -h "$s" ]]; do 
+readonly __APPDIR="$(s="${BASH_SOURCE[0]:-}"; while [[ -h "$s" ]]; do
   d="$(cd -P "$(dirname "$s")" && pwd)"; s="$(readlink "$s")"; [[ "$s" != /* ]] && s="$d/$s"; done; cd -P "$(dirname "$s")" && pwd)"
 
 readonly __L_NEW=${LOG_NEW:-true}
@@ -87,7 +87,7 @@ __TEMP_DIRS=()
 u.os() { case "${OSTYPE:-}" in darwin*) echo mac;; linux*) echo linux;; *) echo unknown;; esac; }
 u.arch() { case "$(uname -m 2>/dev/null)" in x86_64*) echo x86_64;; i*86) echo x86;; arm*) echo arm;; aarch64) echo arm64;; *) echo unknown;; esac; }
 u.die() { u.error "$@"; exit $_E; }
-u.require() { 
+u.require() {
   local tool="${1:-}"
   [[ -z "$tool" ]] && { u.error "missing dependency name"; exit $_E_DEP; }
   if [[ "$tool" == /* ]] || [[ "$tool" == ./* ]] || [[ "$tool" == ../* ]]; then
@@ -361,17 +361,17 @@ _main() {
   local _greeting="Hello"
   local _target="${_name:-World}"
   local _num="${_count:-1}"
-  
+
   [[ "${_loud:-false}" == true ]] && {
     _greeting=$(u.upper "$_greeting")
     _target=$(u.upper "$_target")
   }
-  
+
   local _i
   for ((_i=1; _i<=_num; _i++)); do
     u.info "$_greeting, $_target! (greeting $_i of $_num)"
   done
-  
+
   u.info "Template version: $(_version) running on $(u.os)"
   return 0
 }
@@ -449,7 +449,7 @@ _args() {
 
   # Preprocess: separate flags from positional args
   local _reordered=() _positional=() _i _next_is_value=false
-  
+
   for _i in "$@"; do
     if [[ "$_next_is_value" == true ]]; then
       # This is a value for the previous flag
