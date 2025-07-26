@@ -74,10 +74,10 @@ update-scripts: check-network
 ## Run all test suites using unified test driver
 test:
 	@echo "$(YELLOW)Running all test suites...$(NC)"
-	@if [ -f .common/test-driver ]; then \
-		chmod +x .common/test-driver && ./.common/test-driver; \
+	@if [ -f test/.common/test-driver ]; then \
+		chmod +x test/.common/test-driver && ./test/.common/test-driver; \
 	else \
-		echo "$(RED)❌ .common/test-driver not found$(NC)"; \
+		echo "$(RED)❌ test/.common/test-driver not found$(NC)"; \
 		echo "$(YELLOW)Please ensure test framework is set up$(NC)"; \
 		exit 1; \
 	fi
@@ -86,10 +86,10 @@ test:
 test-bash3:
 	@echo "$(YELLOW)Running tests with system Bash (/bin/bash)...$(NC)"
 	@echo "$(BLUE)Bash version: $$(/bin/bash --version | head -1)$(NC)"
-	@if [ -f .common/test-driver ]; then \
-		chmod +x .common/test-driver && /bin/bash .common/test-driver; \
+	@if [ -f test/.common/test-driver ]; then \
+		chmod +x test/.common/test-driver && /bin/bash test/.common/test-driver; \
 	else \
-		echo "$(RED)❌ .common/test-driver not found$(NC)"; \
+		echo "$(RED)❌ test/.common/test-driver not found$(NC)"; \
 		exit 1; \
 	fi
 
@@ -113,8 +113,8 @@ lint-main:
 lint-tests:
 	@echo "$(YELLOW)Linting test framework...$(NC)"
 	@if command -v shellcheck >/dev/null; then \
-		if [ -f .common/test-driver ]; then shellcheck .common/test-driver; fi; \
-		if [ -f .common/test-common ]; then shellcheck .common/test-common; fi; \
+		if [ -f test/.common/test-driver ]; then shellcheck test/.common/test-driver; fi; \
+		if [ -f test/.common/test-common ]; then shellcheck test/.common/test-common; fi; \
 		echo "$(GREEN)✅ Test framework passes shellcheck$(NC)"; \
 	else \
 		echo "$(RED)❌ shellcheck not found$(NC)"; exit 1; \
@@ -150,7 +150,7 @@ check-deps:
 	else \
 		echo "$(RED)❌ template files not found$(NC)"; exit 1; \
 	fi
-	@if [ -f .common/test-driver ]; then \
+	@if [ -f test/.common/test-driver ]; then \
 		echo "$(GREEN)✅ test framework available$(NC)"; \
 	else \
 		echo "$(RED)❌ test framework not found$(NC)"; exit 1; \
