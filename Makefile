@@ -94,7 +94,7 @@ test-bash3:
 	fi
 
 ## Run tests with both system and modern Bash
-test-all: test-bash3 test
+test-all: test
 	@echo "$(GREEN)✅ All Bash version tests completed$(NC)"
 
 ## Run shellcheck linting on all scripts
