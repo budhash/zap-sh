@@ -11,7 +11,7 @@
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/budhash/zap-sh)
 [![CI](https://github.com/budhash/zap-sh/workflows/CI/badge.svg)](https://github.com/budhash/zap-sh/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Bash 4.0+](https://img.shields.io/badge/bash-4.0+-blue.svg)](https://www.gnu.org/software/bash/)
+[![Bash 3.2+](https://img.shields.io/badge/bash-3.2+-blue.svg)](https://www.gnu.org/software/bash/)
 [![Language](https://img.shields.io/github/languages/top/budhash/zap-sh)](https://github.com/budhash/zap-sh)
 [![Issues](https://img.shields.io/github/issues/budhash/zap-sh)](https://github.com/budhash/zap-sh/issues)
 
@@ -412,7 +412,7 @@ ZAP_DEV=true zap-sh init dev-test
 
 ## Requirements
 
-- **bash**  4+ (Linux) - (3.2 coming soon)
+- **bash**  3.2+ (macOS default) / 4+ (Linux)
 - **curl** (for template downloads and updates)
 - **Standard Unix tools**: `sed`, `grep`, `find`
 
@@ -470,7 +470,7 @@ A: Yes! It's your script. Keep custom code in the `##( app` section to preserve 
 A: Basic (~200 lines) provides essential utilities for simple scripts. Enhanced (~400+ lines) includes 60+ utility functions for complex tools, JSON processing, and HTTP utilities.
 
 **Q: Is bash 3.2 supported?**  
-A: 3.2  will be supported soon. (Note: macOS ships with bash 3.2 due to licensing. Supporting it ensures scripts work everywhere without requiring users to upgrade bash)
+A: Yes! Bash 3.2 is fully supported. This ensures scripts work on macOS (which ships with bash 3.2) without requiring users to upgrade bash.
 
 **Q: How do updates work?**  
 A: `zap-sh upgrade` downloads the latest binary and templates. `zap-sh update -f script.sh` updates framework sections while preserving your app code.
