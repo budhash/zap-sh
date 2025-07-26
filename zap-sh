@@ -194,11 +194,20 @@ cmd_init() {
   done
 
   local collection_output
+  local collection_exit_code=0
 
   if [[ "$wizard" == true ]]; then
     collection_output=$(collect_wizard_variables "$template" "${user_variables[@]:-}")
+    collection_exit_code=$?
   else
     collection_output=$(collect_cli_variables "$project" "$template" "${user_variables[@]:-}")
+    collection_exit_code=$?
+  fi
+
+  # Check if collection was cancelled or failed
+  if [[ -z "$collection_output" ]]; then
+    # The collection function already printed any messages
+    exit $collection_exit_code
   fi
 
   # Generate script (same for both modes)
@@ -559,7 +568,7 @@ collect_wizard_variables() {
   local project_val=""
 
   u.info "Interactive Project Setup"
-  echo
+  echo >&2
 
   # 1. Template selection FIRST (affects available variables)
   if ! has_variable "template" "${vars_array[@]}"; then
@@ -647,16 +656,17 @@ collect_wizard_variables() {
     fi
   fi
 
-  echo
+  echo >&2
   u.info "Project Summary:"
   u.info "  Name: $project_val"
   u.info "  Template: $template_val"
   u.info "  Output: $output_path"
   for var in "${vars_array[@]}"; do
     [[ "$var" == output_path=* ]] && continue
+    [[ -z "$var" ]] && continue  # Skip empty variables
     u.info "  ${var%%=*}: ${var#*=}"
   done
-  echo
+  echo >&2
 
   u.confirm "Create project with these settings?" || { u.info "cancelled"; exit 0; }
 
