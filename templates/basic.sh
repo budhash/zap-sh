@@ -18,8 +18,8 @@ set -eEuo pipefail; IFS=$'\n\t'  # fail fast, secure IFS
 ##( metadata
 readonly __ID="basic-1.0.0"
 readonly __APP="$(basename "${BASH_SOURCE[0]:-}")"
-readonly __APPFILE="${BASH_SOURCE[0]}"
-readonly __APPDIR="$(s="${BASH_SOURCE[0]}"; while [[ -h "$s" ]]; do 
+readonly __APPFILE="${BASH_SOURCE[0]:-}"
+readonly __APPDIR="$(s="${BASH_SOURCE[0]:-}"; while [[ -h "$s" ]]; do 
   d="$(cd -P "$(dirname "$s")" && pwd)"; s="$(readlink "$s")"; [[ "$s" != /* ]] && s="$d/$s"; done; cd -P "$(dirname "$s")" && pwd)"
 __DBG=${DEBUG:-false}
 ##) metadata
@@ -91,7 +91,7 @@ _main() {
     case $_opt in
       h) _help=true;;
       v) _version=true;;
-      f) _file="$OPTARG";;
+      f) _file="${OPTARG:-}";;
       \?) u.error "unknown option: -${OPTARG:-}"; exit $_E_USG;;
     esac
   done
