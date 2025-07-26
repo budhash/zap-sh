@@ -74,7 +74,7 @@ assert_fails() {
 # Check bash version
 check_bash_version() {
     local version
-    version=$($BASH --version | head -1 | awk '{print $4}' | cut -d. -f1-2)
+    version=$(${BASH:-bash} --version | head -1 | awk '{print $4}' | cut -d. -f1-2)
     echo "$version"
 }
 ##) helpers
@@ -94,25 +94,25 @@ run_compatibility_tests() {
     print_test "INFO" "Testing prohibited Bash 4+ features..."
     
     # Test nameref (local -n) - should fail in Bash 3.2
-    assert_fails "nameref (local -n) is not available" $BASH -c 'local -n ref=var 2>/dev/null'
+    assert_fails "nameref (local -n) is not available" ${BASH:-bash} -c 'local -n ref=var 2>/dev/null'
     
     # Test associative arrays - should fail in Bash 3.2
-    assert_fails "associative arrays (declare -A) are not available" $BASH -c 'declare -A arr 2>/dev/null'
+    assert_fails "associative arrays (declare -A) are not available" ${BASH:-bash} -c 'declare -A arr 2>/dev/null'
     
     # Test mapfile - should fail in Bash 3.2
-    assert_fails "mapfile is not available" $BASH -c 'mapfile arr < /dev/null 2>/dev/null'
+    assert_fails "mapfile is not available" ${BASH:-bash} -c 'mapfile arr < /dev/null 2>/dev/null'
     
     # Test readarray - should fail in Bash 3.2
-    assert_fails "readarray is not available" $BASH -c 'readarray arr < /dev/null 2>/dev/null'
+    assert_fails "readarray is not available" ${BASH:-bash} -c 'readarray arr < /dev/null 2>/dev/null'
     
     # Test case conversion ${var,,} - should fail in Bash 3.2
-    assert_fails "lowercase conversion \${var,,} is not available" $BASH -c 'var=TEST; echo ${var,,} 2>/dev/null'
+    assert_fails "lowercase conversion \${var,,} is not available" ${BASH:-bash} -c 'var=TEST; echo ${var,,} 2>/dev/null'
     
     # Test case conversion ${var^^} - should fail in Bash 3.2
-    assert_fails "uppercase conversion \${var^^} is not available" $BASH -c 'var=test; echo ${var^^} 2>/dev/null'
+    assert_fails "uppercase conversion \${var^^} is not available" ${BASH:-bash} -c 'var=test; echo ${var^^} 2>/dev/null'
     
     # Test &>> redirection - should fail in Bash 3.2
-    assert_fails "&>> redirection is not available" $BASH -c 'echo test &>> /dev/null'
+    assert_fails "&>> redirection is not available" ${BASH:-bash} -c 'echo test &>> /dev/null'
     
     echo
     print_test "INFO" "Testing compatible alternatives..."
