@@ -9,6 +9,9 @@
 # VERSION: 0.7.0
 # LICENSE: MIT
 # --------------------------------------------------------------------
+# __TEMPLATE__: https://github.com/budhash/zap-sh/blob/main/templates/basic.sh
+# __ID__: basic-1.0.0
+# --------------------------------------------------------------------
 ##) header
 
 ##( configuration
@@ -17,8 +20,8 @@ set -eEuo pipefail; IFS=$'\n\t'  # fail fast, secure IFS
 
 ##( metadata
 readonly __APP="$(basename "${BASH_SOURCE[0]:-}")"
-readonly __APPFILE="${BASH_SOURCE[0]}"
-readonly __APPDIR="$(s="${BASH_SOURCE[0]}"; while [[ -h "$s" ]]; do
+readonly __APPFILE="${BASH_SOURCE[0]:-}"
+readonly __APPDIR="$(s="${BASH_SOURCE[0]:-}"; while [[ -h "$s" ]]; do
   d="$(cd -P "$(dirname "$s")" && pwd)"; s="$(readlink "$s")"; [[ "$s" != /* ]] && s="$d/$s"; done; cd -P "$(dirname "$s")" && pwd)"
 __DBG=${DEBUG:-false}
 ##) metadata
@@ -42,7 +45,7 @@ readonly _E=1 _E_USG=2 _E_DEP=3 _E_OS=4 _E_NF=5 _E_NP=6 _E_NC=7
 ##[ system
 u.os() { case "${OSTYPE:-}" in darwin*) echo mac;; linux*) echo linux;; *) echo unknown;; esac; }
 u.die() { u.error "$@"; exit $_E; }
-u.require() { 
+u.require() {
   local tool="${1:-}"
   [[ -z "$tool" ]] && { u.error "missing dependency name"; exit $_E_DEP; }
   if [[ "$tool" == /* ]] || [[ "$tool" == ./* ]] || [[ "$tool" == ../* ]]; then
