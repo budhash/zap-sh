@@ -301,7 +301,7 @@ test_script_updates() {
   
   for template in "${templates[@]}"; do
     local test_file="$TEST_OUTPUT_DIR/update-${template}.sh"
-    local user_marker="# MY_CUSTOM_${template^^}_CODE_MUST_SURVIVE"
+    local user_marker="# MY_CUSTOM_$(echo "$template" | tr '[:lower:]' '[:upper:]')_CODE_MUST_SURVIVE"
     
     # Create script
     assert_ok "./$ZAP_SCRIPT" init "update-${template}-test" -t "$template" -o "$test_file" --author="Update User" "creates $template for update testing"

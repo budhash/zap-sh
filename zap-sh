@@ -193,18 +193,39 @@ cmd_init() {
     esac
   done
 
-  # Route to appropriate mode
-  # Pass variable references (not values) to allow functions to modify originals:
-  # - user_variables array will be modified by adding key=value pairs
-  # - project string will be set to the project name
-  # - template string will be set to the template choice
+  local collection_output
+  local collection_exit_code=0
+
   if [[ "$wizard" == true ]]; then
-    collect_wizard_variables user_variables project template
+    collection_output=$(collect_wizard_variables "$template" "${user_variables[@]:-}")
+    collection_exit_code=$?
   else
-    collect_cli_variables user_variables project template
+    collection_output=$(collect_cli_variables "$project" "$template" "${user_variables[@]:-}")
+    collection_exit_code=$?
+  fi
+
+  # Check if collection was cancelled or failed
+  if [[ -z "$collection_output" ]]; then
+    # The collection function already printed any messages
+    exit $collection_exit_code
   fi
 
   # Generate script (same for both modes)
+  local new_vars=()
+  local line_num=1
+  while IFS= read -r line; do
+    if (( line_num == 1 )); then
+      project="$line"
+    elif (( line_num == 2 )); then
+      template="$line"
+    else
+      new_vars+=("$line")
+    fi
+    ((line_num++))
+  done <<< "$collection_output"
+
+  user_variables=("${new_vars[@]}")
+
   generate_project "$project" "$template" "${user_variables[@]}"
 }
 
@@ -518,90 +539,95 @@ get_template_file() {
 }
 
 collect_cli_variables() {
-  local -n vars_ref=$1      # Reference to user_variables array
-  local -n project_ref=$2   # Reference to _project string
-  local -n template_ref=$3  # Reference to _template string
+  local project_val="$1"
+  local template_val="$2"
+  shift 2
+  local vars_array=("$@")
 
-  # Validate required CLI arguments
-  [[ -n "$project_ref" ]] || { u.error "$__NAME init <project-name> or $__NAME init -w"; exit $_E_USG; }
-  [[ "$project_ref" =~ ^[a-zA-Z0-9_-]+$ ]] || { u.error "invalid project name: '$project_ref' (letters/numbers/hyphens/underscores only)"; exit $_E_USG; }
+  [[ -n "$project_val" ]] || { u.error "$__NAME init <project-name> or $__NAME init -w"; exit $_E_USG; }
+  [[ "$project_val" =~ ^[a-zA-Z0-9_-]+$ ]] || { u.error "invalid project name: '$project_val' (letters/numbers/hyphens/underscores only)"; exit $_E_USG; }
 
-  # If no output path specified, use default
-  local user_vars_string="${vars_ref[*]}"
-  if [[ "$user_vars_string" != *"output_path="* ]]; then
-    vars_ref+=("output_path=${project_ref}.sh")
+  if ! has_variable "output_path" "${vars_array[@]}"; then
+    vars_array+=("output_path=${project_val}.sh")
   fi
 
   # CLI mode complete - no additional collection needed
-  u.debug "cli mode: project=$project_ref, template=$template_ref, variables=${vars_ref[*]}"
+  u.debug "cli mode: project=$project_val, template=$template_val, variables=${vars_array[*]}"
+
+  echo "$project_val"
+  echo "$template_val"
+  if (( ${#vars_array[@]} > 0 )); then
+    printf "%s\n" "${vars_array[@]}"
+  fi
 }
 
 collect_wizard_variables() {
-  # shellcheck disable=SC2178  # vars_ref is intentionally a nameref to array
-  local -n vars_ref=$1      # Reference to user_variables array
-  local -n project_ref=$2   # Reference to _project string
-  local -n template_ref=$3  # Reference to _template string
+  local template_val="$1"
+  shift 1
+  local vars_array=("$@")
+  local project_val=""
 
   u.info "Interactive Project Setup"
-  echo
+  echo >&2
 
   # 1. Template selection FIRST (affects available variables)
-  if ! has_variable "template" "${vars_ref[@]}"; then
-    local template_options=$(u.array_join "," "${_TEMPLATES[@]}")
-    local template_choice=$(u.readline "Template ($template_options) - [$_TEMPLATE_DFLT]:")
-    template_ref="${template_choice:-$_TEMPLATE_DFLT}"
+  if ! has_variable "template" "${vars_array[@]}"; then
+    local template_options
+    template_options=$(u.array_join "," "${_TEMPLATES[@]}")
+    local template_choice
+    template_choice=$(u.readline "Template ($template_options) - [$_TEMPLATE_DFLT]:")
+    template_val="${template_choice:-$_TEMPLATE_DFLT}"
 
     # Validate template choice
     local valid_template=false
     local tmpl
     for tmpl in "${_TEMPLATES[@]}"; do
-      [[ "$template_ref" == "$tmpl" ]] && { valid_template=true; break; }
+      [[ "$template_val" == "$tmpl" ]] && { valid_template=true; break; }
     done
-    [[ "$valid_template" == true ]] || { u.error "invalid template: '$template_ref' (available: $template_options)"; exit $_E_USG; }
+    [[ "$valid_template" == true ]] || { u.error "invalid template: '$template_val' (available: $template_options)"; exit $_E_USG; }
   fi
 
   # 2. Project name
-  project_ref=$(u.readline "Project name:")
-  [[ -n "$project_ref" ]] || { u.info "cancelled"; exit 0; }
-  [[ "$project_ref" =~ ^[a-zA-Z0-9_-]+$ ]] || { u.error "invalid project name: '$project_ref' (letters/numbers/hyphens/underscores only)"; exit $_E_USG; }
+  project_val=$(u.readline "Project name:")
+  [[ -n "$project_val" ]] || { u.info "cancelled"; exit 0; }
+  [[ "$project_val" =~ ^[a-zA-Z0-9_-]+$ ]] || { u.error "invalid project name: '$project_val' (letters/numbers/hyphens/underscores only)"; exit $_E_USG; }
 
   # 3. Output path (wizard-specific)
-  local output_path=$(u.readline "Output file (${project_ref}.sh):")
-  output_path="${output_path:-${project_ref}.sh}"
-  vars_ref+=("output_path=$output_path")
+  local output_path
+  output_path=$(u.readline "Output file (${project_val}.sh):")
+  output_path="${output_path:-${project_val}.sh}"
+  vars_array+=("output_path=$output_path")
 
   # 4. Author info (only ask for missing values)
-  if ! has_variable "author" "${vars_ref[@]}"; then
-    local author=$(u.readline "Author (anonymous):")
-    [[ -n "$author" ]] && vars_ref+=("author=$author")
+  if ! has_variable "author" "${vars_array[@]}"; then
+    local author; author=$(u.readline "Author (anonymous):")
+    [[ -n "$author" ]] && vars_array+=("author=$author")
   fi
 
   # 5. Email (only ask for missing values)
-  if ! has_variable "email" "${vars_ref[@]}"; then
-    local email=$(u.readline "Email (optional):")
-    [[ -n "$email" ]] && vars_ref+=("email=$email")
+  if ! has_variable "email" "${vars_array[@]}"; then
+    local email; email=$(u.readline "Email (optional):")
+    [[ -n "$email" ]] && vars_array+=("email=$email")
   fi
 
   # 6. Project details (only ask for missing values)
-  if ! has_variable "detail" "${vars_ref[@]}"; then
-    local detail=$(u.readline "Brief description (Generated by zap-sh):")
+  if ! has_variable "detail" "${vars_array[@]}"; then
+    local detail; detail=$(u.readline "Brief description (Generated by zap-sh):")
     detail="${detail:-Generated by zap-sh}"
-    vars_ref+=("detail=$detail")
+    vars_array+=("detail=$detail")
   fi
 
   # 6. Project description (only ask for missing values)
-  if ! has_variable "description" "${vars_ref[@]}"; then
-    local description=$(u.readline "Long description (Generated by zap-sh template):")
+  if ! has_variable "description" "${vars_array[@]}"; then
+    local description; description=$(u.readline "Long description (Generated by zap-sh template):")
     description="${description:-Generated by zap-sh template}"
-    vars_ref+=("description=$description")
+    vars_array+=("description=$description")
   fi
 
   # 7. License selection with validation
-  if ! has_variable "license" "${vars_ref[@]}"; then
-    local config_dir
-    config_dir=$(get_config_dir)
+  if ! has_variable "license" "${vars_array[@]}"; then
+    local config_dir; config_dir=$(get_config_dir)
 
-    # Get available licenses (Bash 3.2 compatible)
     local license_array=()
     local license_line
     while IFS= read -r license_line; do
@@ -609,9 +635,10 @@ collect_wizard_variables() {
     done < <(get_available_licenses "$config_dir" 2>/dev/null)
 
     if [[ ${#license_array[@]} -gt 0 ]]; then
-      local license_options=$(u.array_join "," "${license_array[@]}")
-      local default_license="${license_array[0]}"
-      local license=$(u.readline "License ($license_options) - [$default_license]:")
+      local license_options default_license license
+      license_options=$(u.array_join "," "${license_array[@]}")
+      default_license="${license_array[0]}"
+      license=$(u.readline "License ($license_options) - [$default_license]:")
       license="${license:-$default_license}"
 
       # Validate license choice
@@ -622,29 +649,34 @@ collect_wizard_variables() {
       done
       [[ "$valid_license" == true ]] || { u.error "invalid license: '$license' (available: $license_options)"; exit $_E_USG; }
 
-      vars_ref+=("license=$license")
+      vars_array+=("license=$license")
     else
       u.error "no licenses available - run '$__APP upgrade' to download license templates"
       exit $_E_NF
     fi
   fi
 
-  # Show summary
-  echo
+  echo >&2
   u.info "Project Summary:"
-  u.info "  Name: $project_ref"
-  u.info "  Template: $template_ref"
+  u.info "  Name: $project_val"
+  u.info "  Template: $template_val"
   u.info "  Output: $output_path"
-  for var in "${vars_ref[@]}"; do
-    # Skip output_path in the variable list since we show it separately
+  for var in "${vars_array[@]}"; do
     [[ "$var" == output_path=* ]] && continue
+    [[ -z "$var" ]] && continue  # Skip empty variables
     u.info "  ${var%%=*}: ${var#*=}"
   done
-  echo
+  echo >&2
 
   u.confirm "Create project with these settings?" || { u.info "cancelled"; exit 0; }
 
-  u.debug "wizard mode: project=$project_ref, template=$template_ref, variables=${vars_ref[*]}"
+  u.debug "wizard mode: project=$project_val, template=$template_val, variables=${vars_array[*]}"
+
+  echo "$project_val"
+  echo "$template_val"
+  if (( ${#vars_array[@]} > 0 )); then
+    printf "%s\n" "${vars_array[@]}"
+  fi
 }
 
 generate_project() {
@@ -656,9 +688,7 @@ generate_project() {
 
   # Determine output file (check for user-provided path first)
   local output_file="${project}.sh"
-  local user_vars_string="${user_variables[*]}"
-  if [[ "$user_vars_string" == *"output_path="* ]]; then
-    # Extract output path from user variables (both wizard and CLI mode)
+  if has_variable "output_path" "${user_variables[@]}"; then
     local var
     for var in "${user_variables[@]}"; do
       if [[ "$var" == output_path=* ]]; then
@@ -688,18 +718,15 @@ generate_project() {
     "description=Generated by $__NAME template"
   )
 
-  # Add missing defaults (avoid duplicates)
-  local user_vars_string="${user_variables[*]}"
-  [[ "$user_vars_string" != *"author="* ]] && default_variables+=("author=anonymous")
-  [[ "$user_vars_string" != *"version="* ]] && default_variables+=("version=0.1.0")
-  [[ "$user_vars_string" != *"email="* ]] && default_variables+=("email=")
+  ! has_variable "author" "${user_variables[@]}" && default_variables+=("author=anonymous")
+  ! has_variable "version" "${user_variables[@]}" && default_variables+=("version=0.1.0")
+  ! has_variable "email" "${user_variables[@]}" && default_variables+=("email=")
 
   # Handle license - either from user input or default
   local license_name="MIT License"
   local license_content=""
 
-  if [[ "$user_vars_string" == *"license="* ]]; then
-    # Extract license name from user variables
+  if has_variable "license" "${user_variables[@]}"; then
     local license_code=""
     local license_var
     for license_var in "${user_variables[@]}"; do
@@ -734,8 +761,6 @@ generate_project() {
   default_variables+=("license_name=$license_name")
   if [[ -n "$license_content" ]]; then
     default_variables+=("license_content=$license_content")
-  else
-    default_variables+=("license=")
   fi
 
   # Merge variables 
@@ -866,8 +891,9 @@ download_manifest() {
         local source_url="$_ZAP_REMOTE/$file_path"
 
         # Create directory if needed
+  
         mkdir -p "$(dirname "$target_file")"
-
+  
         u.info "downloading: $file_path"
         download_file "$source_url" "$target_file" || { u.error "failed to download: $file_path"; return $_E_NC; }
         ;;
@@ -948,30 +974,20 @@ detect_template_id() {
 apply_variables() {
   local content="$1"
   shift
+  local variables=("$@")
 
   local result="$content"
   local assignment var value
-
-  for assignment in "$@"; do
+  for assignment in "${variables[@]}"; do
     if [[ "$assignment" == *=* ]]; then
       var="${assignment%%=*}"
       value="${assignment#*=}"
+      local placeholder="{{$var}}"
 
-      # Use bash parameter expansion for multiline content (more reliable)
-      if [[ "$value" == *$'\n'* ]]; then
-        # Use bash parameter expansion to replace all occurrences
-        local placeholder="{{$var}}"
-        while [[ "$result" == *"$placeholder"* ]]; do
-          result="${result/"$placeholder"/"$value"}"
-        done
-        u.debug "applied variable (multiline): $var=[multiline content]"
-      else
-        # Single-line substitution using sed (safe for single lines)
-        local escaped_value
-        escaped_value=$(printf '%s\n' "$value" | sed 's/[[\.*^$()+?{|\/]/\\&/g; s/&/\\&/g')
-        result=$(printf '%s\n' "$result" | sed "s/{{$var}}/$escaped_value/g")
-        u.debug "applied variable (case-sensitive): $var=$value"
-      fi
+      while [[ "$result" == *"$placeholder"* ]]; do
+        result="${result//"$placeholder"/"$value"}"
+      done
+      u.debug "applied variable: $var"
     fi
   done
 
