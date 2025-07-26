@@ -16,7 +16,6 @@ set -eEuo pipefail; IFS=$'\n\t'  # fail fast, secure IFS
 ##) configuration
 
 ##( metadata
-readonly __ID="basic-1.0.0"
 readonly __APP="$(basename "${BASH_SOURCE[0]:-}")"
 readonly __APPFILE="${BASH_SOURCE[0]}"
 readonly __APPDIR="$(s="${BASH_SOURCE[0]}"; while [[ -h "$s" ]]; do
@@ -956,8 +955,16 @@ detect_template_id() {
   local script_file="$1"
   [[ -f "$script_file" ]] || { u.error "script file not found: $script_file"; return $_E_NF; }
 
-  # Look for template ID in script
+  # Look for template ID in header comments (new format)
   local template_id
+  template_id=$(sed -n 's/^#[[:space:]]*__ID__:[[:space:]]*\(.*\)$/\1/p' "$script_file" 2>/dev/null | head -1)
+
+  if [[ -n "$template_id" ]]; then
+    echo "$template_id"
+    return 0
+  fi
+
+  # Fallback: check for old format (backward compatibility)
   template_id=$(grep 'readonly __ID=' "$script_file" 2>/dev/null | sed 's/.*="\(.*\)".*/\1/')
 
   if [[ -n "$template_id" ]]; then

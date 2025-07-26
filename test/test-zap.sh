@@ -91,7 +91,12 @@ assert_executable() {
 assert_template_id() {
   _TESTS_RUN=$((_TESTS_RUN + 1))
   local file="$1" expected_template="$2" desc="$3"
-  local template_id=$(grep "__ID=" "$file" 2>/dev/null | sed 's/.*="\(.*\)".*/\1/' || echo "")
+  # Try new format first
+  local template_id=$(sed -n 's/^#[[:space:]]*__ID__:[[:space:]]*\(.*\)$/\1/p' "$file" 2>/dev/null | head -1)
+  # Fallback to old format
+  if [[ -z "$template_id" ]]; then
+    template_id=$(grep "__ID=" "$file" 2>/dev/null | sed 's/.*="\(.*\)".*/\1/' || echo "")
+  fi
   
   # Extract template name and version parts
   local template_name="${template_id%-*}"  # Everything before last hyphen
