@@ -19,6 +19,9 @@
 #
 # Type "{{app}} -h" for usage guidelines.
 # --------------------------------------------------------------------
+# __TEMPLATE__: https://github.com/budhash/zap-sh/blob/main/templates/enhanced.sh
+# __ID__: enhanced-0.7.0
+# --------------------------------------------------------------------
 ##) header
 
 ##( configuration
@@ -30,7 +33,6 @@ IFS=$'\n\t'     # Secure IFS
 ##) configuration
 
 ##( metadata
-readonly __ID="enhanced-1.0.0"
 readonly __APP="$(basename "${BASH_SOURCE[0]:-}")"
 readonly __APPFILE="${BASH_SOURCE[0]:-}"
 readonly __APPDIR="$(s="${BASH_SOURCE[0]:-}"; while [[ -h "$s" ]]; do 

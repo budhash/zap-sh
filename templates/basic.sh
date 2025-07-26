@@ -9,6 +9,9 @@
 # VERSION: {{version}}
 # LICENSE: {{license_name}}
 # --------------------------------------------------------------------
+# __TEMPLATE__: https://github.com/budhash/zap-sh/blob/main/templates/basic.sh
+# __ID__: basic-0.7.0
+# --------------------------------------------------------------------
 ##) header
 
 ##( configuration
@@ -16,7 +19,6 @@ set -eEuo pipefail; IFS=$'\n\t'  # fail fast, secure IFS
 ##) configuration
 
 ##( metadata
-readonly __ID="basic-1.0.0"
 readonly __APP="$(basename "${BASH_SOURCE[0]:-}")"
 readonly __APPFILE="${BASH_SOURCE[0]:-}"
 readonly __APPDIR="$(s="${BASH_SOURCE[0]:-}"; while [[ -h "$s" ]]; do 

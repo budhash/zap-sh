@@ -207,9 +207,9 @@ sync-templates: check-tools
 	if [ -n "$$VERSION" ]; then \
 		echo "$(BLUE)Source version: $$VERSION$(NC)"; \
 		echo "$(YELLOW)Updating basic template...$(NC)"; \
-		./.github/scripts/ver-kit set -f templates/basic.sh -p "readonly.*__ID=" "$$VERSION" >/dev/null; \
+		sed -i.bak "s/^#[[:space:]]*__ID__:[[:space:]]*.*/# __ID__: basic-$$VERSION/" templates/basic.sh && rm -f templates/basic.sh.bak; \
 		echo "$(YELLOW)Updating enhanced template...$(NC)"; \
-		./.github/scripts/ver-kit set -f templates/enhanced.sh -p "readonly.*__ID=" "$$VERSION" >/dev/null; \
+		sed -i.bak "s/^#[[:space:]]*__ID__:[[:space:]]*.*/# __ID__: enhanced-$$VERSION/" templates/enhanced.sh && rm -f templates/enhanced.sh.bak; \
 		echo "$(GREEN)✅ All templates synced to $$VERSION$(NC)"; \
 	else \
 		echo "$(RED)❌ Could not read version from version.txt$(NC)"; \
