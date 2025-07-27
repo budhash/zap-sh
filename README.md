@@ -51,7 +51,7 @@ zap-sh generates bash scripts from templates, similar to how cookiecutter works 
 - Interactive setup wizard for new projects
 - Built-in license templates (MIT, Apache, GPL)
 - Your code stays safe during framework updates
-- Works on Linux (macOS coming soon)
+- Cross-platform support (Bash 3.2+ for macOS compatibility)
 - Piped execution support with configurable restrictions
 - Automatic updates from GitHub
 
@@ -70,6 +70,22 @@ zap-sh init my-script --author="Your Name" --email="you@example.com" --license="
 
 # Start coding in the ##( app section
 ./my-script.sh --help
+```
+
+### One-Line Script Generation
+
+You can also generate scripts directly using piped execution:
+
+```bash
+# Interactive wizard
+curl -sL https://raw.githubusercontent.com/budhash/zap-sh/main/zap-sh | bash -s -- init -w
+
+# Basic script
+curl -sL https://raw.githubusercontent.com/budhash/zap-sh/main/zap-sh | bash -s -- init my-tool
+
+# Enhanced script with options
+curl -sL https://raw.githubusercontent.com/budhash/zap-sh/main/zap-sh | \
+  bash -s -- init api-client -t enhanced --author="Jane Doe" --license=mit
 ```
 
 ## Installation
@@ -460,6 +476,34 @@ This is useful for scripts that:
 - `__APP_DEPS`: Array of required external commands
 - `__ARG_AUTO`: (enhanced template only) Enable automatic argument parsing
 
+### Automatic Argument Parsing (Enhanced Template)
+
+The enhanced template includes sophisticated argument parsing controlled by `__ARG_AUTO`:
+
+```bash
+##[ config
+readonly __ARG_AUTO=true     # Enable automatic argument parsing
+# format: "short_spec|variable_name|long_name|description"
+readonly __APP_OPTS=(
+  "n:|_name|name|Your name for personalized greeting"
+  "c:|_count|count|Number of greetings (default: 1)"
+  "l|_loud|loud|Use uppercase output"
+)
+##] config
+```
+
+When `__ARG_AUTO=true`:
+- Arguments are automatically parsed based on `__APP_OPTS` definitions
+- Variables are set according to the specifications (e.g., `_name`, `_count`, `_loud`)
+- Positional arguments are collected in `__ARG_FNL` array
+- Help text is auto-generated from option descriptions
+
+Option format: `"short_spec|variable_name|long_name|description"`
+- `short_spec`: Single letter option (add `:` for options requiring values)
+- `variable_name`: Variable to store the value
+- `long_name`: Long option name (for documentation)
+- `description`: Help text for the option
+
 ## Workflow Examples
 
 ### Typical Development Workflow
@@ -505,7 +549,7 @@ A: Yes! It's your script. Keep custom code in the `##( app` section to preserve 
 A: Basic (~200 lines) provides essential utilities for simple scripts. Enhanced (~400+ lines) includes 60+ utility functions for complex tools, JSON processing, and HTTP utilities.
 
 **Q: Is bash 3.2 supported?**  
-A: Yes! Bash 3.2 is fully supported. This ensures scripts work on macOS (which ships with bash 3.2) without requiring users to upgrade bash.
+A: Yes! Bash 3.2 is supported. This ensures scripts work on macOS (which ships with bash 3.2) without requiring users to upgrade bash.
 
 **Q: How do updates work?**  
 A: `zap-sh upgrade` downloads the latest binary and templates. `zap-sh update -f script.sh` updates framework sections while preserving your app code.
