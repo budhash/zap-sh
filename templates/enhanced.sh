@@ -353,8 +353,8 @@ u.json_get() {
 readonly __NAME=template
 readonly __OS=(mac linux)
 readonly __APP_DEPS=(find)
-readonly __ARG_AUTO=true
 readonly __ALLOW_PIPED=true  # Set to false to disable piped execution (e.g., curl | bash)
+readonly __ARG_AUTO=true     # Enable automatic argument parsing
 # format: "short_spec|variable_name|long_name|description"
 readonly __APP_OPTS=(
   "n:|_name|name|Your name for personalized greeting"
