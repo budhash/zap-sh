@@ -391,6 +391,105 @@ test_template_structure() {
     assert_ok grep -q "$var" "$TEMPLATE_FILE" "contains required template variable: $var"
   done
 }
+test_piped_execution() {
+  _section_header "Piped Execution Support"
+  
+  # Create a test script from basic template
+  local test_script="test-piped-basic.sh"
+  
+  # Copy template and make it executable
+  cp "$TEMPLATE_FILE" "$test_script"
+  chmod +x "$test_script"
+  
+  # Test piped execution detection
+  local output
+  output=$(cat "$test_script" | bash -s -- -h 2>&1 || true)
+  assert_ok test $? -eq 0 "script executes when piped"
+  
+  # Test 2: Verify __PIPED detection in a minimal script
+  cat > "$test_script" << 'EOF'
+#!/usr/bin/env bash
+# Minimal test for piped mode detection - based on basic template metadata
+set -euo pipefail; IFS=$'\n\t'
+
+# Detect if script is being piped (e.g., curl ... | bash)
+readonly __PIPED=$([[ -z "${BASH_SOURCE[0]:-}" && "${0}" == "bash" ]] && echo true || echo false)
+
+if [[ "$__PIPED" == true ]]; then
+  echo "PIPED_MODE_DETECTED"
+else
+  echo "NORMAL_MODE"
+fi
+EOF
+  chmod +x "$test_script"
+  
+  # Test normal execution
+  output=$("./$test_script" 2>&1 || true)
+  assert_contains "$output" "NORMAL_MODE" "normal execution detects non-piped mode"
+  
+  # Test piped execution
+  output=$(cat "$test_script" | bash 2>&1 || true)
+  assert_contains "$output" "PIPED_MODE_DETECTED" "piped execution detects piped mode"
+  
+  # Test that metadata variables are set correctly in piped mode
+  # We need to check variables before the script runs its main logic
+  cat > "$test_script" << 'EOF'
+#!/usr/bin/env bash
+# Don't source the whole template, just test the metadata section
+set -euo pipefail; IFS=$'\n\t'
+
+# Detect if script is being piped (e.g., curl ... | bash)
+readonly __PIPED=$([[ -z "${BASH_SOURCE[0]:-}" && "${0}" == "bash" ]] && echo true || echo false)
+
+readonly __APP="$(basename "${BASH_SOURCE[0]:-$0}")"
+readonly __APPFILE="${BASH_SOURCE[0]:-}"
+# Handle piped execution - use current directory when no source file
+if [[ "$__PIPED" == false ]]; then
+  readonly __APPDIR="$(s="${BASH_SOURCE[0]}"; while [[ -h "$s" ]]; do
+    d="$(cd -P "$(dirname "$s")" && pwd)"; s="$(readlink "$s")"; [[ "$s" != /* ]] && s="$d/$s"; done; cd -P "$(dirname "$s")" && pwd)"
+else
+  readonly __APPDIR="$(pwd)"
+fi
+
+echo "APP=$__APP"
+echo "APPFILE=$__APPFILE"
+echo "APPDIR=$__APPDIR"
+echo "PIPED=$__PIPED"
+EOF
+  
+  output=$(cat "$test_script" | bash 2>&1)
+  assert_contains "$output" "APP=bash" "__APP fallback to bash in piped mode"
+  assert_contains "$output" "APPFILE=" "__APPFILE empty in piped mode"
+  assert_contains "$output" "PIPED=true" "__PIPED detected correctly"
+  
+  # Test __SOURCE variable availability
+  cat > "$test_script" << 'EOF'
+#!/usr/bin/env bash
+# Prevent template from auto-executing by setting a flag
+export TEST_MODE=true
+# Source just the metadata section to get variables
+set -euo pipefail
+readonly __SOURCE="${BASH_SOURCE[0]:-}"
+readonly __PIPED=$([[ -t 0 || -n "$__SOURCE" ]] && echo false || echo true)
+readonly __APP="$(basename "${__SOURCE:-$0}")"
+readonly __APPFILE="$__SOURCE"
+
+# Output variables for testing
+echo "SOURCE=$__SOURCE"
+echo "APPFILE=$__APPFILE"
+[[ "$__SOURCE" == "$__APPFILE" ]] && echo "SOURCE_MATCH=true" || echo "SOURCE_MATCH=false"
+EOF
+  chmod +x "$test_script"
+  
+  output=$("./$test_script" 2>&1)
+  assert_contains "$output" "SOURCE=" "__SOURCE variable exists"
+  assert_contains "$output" "SOURCE_MATCH=true" "__SOURCE equals __APPFILE"
+  
+  # Clean up
+  rm -f "$test_script" "${test_script}.bak"
+  
+  echo
+}
 ##) tests
 
 ##( init

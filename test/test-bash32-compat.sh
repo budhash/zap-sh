@@ -203,6 +203,115 @@ test_template_compatibility() {
     
     echo
 }
+
+test_piped_execution_compatibility() {
+    print_test "INFO" "Testing piped execution compatibility..."
+    
+    # Test that piped mode detection works in Bash 3.2
+    local test_script="${SCRIPT_DIR}/../test-piped-compat.sh"
+    cat > "$test_script" << 'EOF'
+#!/bin/bash
+# Test piped mode detection
+readonly __PIPED=$([[ -z "${BASH_SOURCE[0]:-}" && "${0}" == "bash" ]] && echo true || echo false)
+
+if [[ "$__PIPED" == true ]]; then
+    echo "PIPED_MODE"
+else
+    echo "NORMAL_MODE"
+fi
+EOF
+    chmod +x "$test_script"
+    
+    # Test normal execution
+    local output
+    output=$("$test_script" 2>&1)
+    assert "normal mode detection" "[[ '$output' == 'NORMAL_MODE' ]]"
+    
+    # Test piped execution
+    output=$(cat "$test_script" | bash 2>&1)
+    assert "piped mode detection" "[[ '$output' == 'PIPED_MODE' ]]"
+    
+    # Test BASH_SOURCE behavior in piped mode
+    cat > "$test_script" << 'EOF'
+#!/bin/bash
+# Test BASH_SOURCE with default values
+echo "BASH_SOURCE[0]=${BASH_SOURCE[0]:-EMPTY}"
+echo "DOLLAR_ZERO=$0"
+EOF
+    
+    output=$(cat "$test_script" | bash 2>&1)
+    assert "BASH_SOURCE empty in piped mode" "[[ '$output' == *'BASH_SOURCE[0]=EMPTY'* ]]"
+    assert "\$0 is bash in piped mode" "[[ '$output' == *'DOLLAR_ZERO=bash'* ]]"
+    
+    # Test that main zap-sh script works when piped
+    local zap_output
+    zap_output=$(cat "${SCRIPT_DIR}/../zap-sh" | bash -s -- -v 2>&1 || true)
+    assert "zap-sh piped version command" "[[ '$zap_output' == '0.0.0' ]]"
+    
+    # Test generated script piped execution
+    local temp_project="pipe-test-$$"
+    "${SCRIPT_DIR}/../zap-sh" init "$temp_project" -t basic >/dev/null 2>&1
+    
+    if [[ -f "${temp_project}.sh" ]]; then
+        # Add test code to generated script
+        cat >> "${temp_project}.sh" << 'EOF'
+# Test code
+if [[ "$__PIPED" == true ]]; then
+    echo "GENERATED_PIPED"
+else
+    echo "GENERATED_NORMAL"
+fi
+EOF
+        
+        output=$(cat "${temp_project}.sh" | bash 2>&1)
+        assert "generated script piped detection" "[[ '$output' == *'GENERATED_PIPED'* ]]"
+        
+        rm -f "${temp_project}.sh"
+    fi
+    
+    # Clean up
+    rm -f "$test_script"
+    
+    echo
+}
+
+test_tty_based_piped_detection() {
+    print_test "INFO" "Testing TTY-based piped detection..."
+    
+    # Create test script with new detection
+    local test_script="${SCRIPT_DIR}/../test-tty-detection.sh"
+    cat > "$test_script" << 'EOF'
+#!/bin/bash
+readonly __SOURCE="${BASH_SOURCE[0]:-}"
+# New TTY-based detection
+readonly __PIPED=$([[ -t 0 || -n "$__SOURCE" ]] && echo false || echo true)
+
+echo "PIPED=$__PIPED"
+echo "SOURCE=$__SOURCE"
+echo "TTY_STDIN=$([[ -t 0 ]] && echo yes || echo no)"
+EOF
+    chmod +x "$test_script"
+    
+    # Test normal execution
+    local output
+    output=$("$test_script" 2>&1)
+    assert "normal execution not piped" "[[ '$output' == *'PIPED=false'* ]]"
+    assert "normal execution has source" "[[ '$output' == *'SOURCE='*'test-tty-detection.sh'* ]]"
+    
+    # Test piped execution
+    output=$(cat "$test_script" | bash 2>&1)
+    assert "piped execution detected" "[[ '$output' == *'PIPED=true'* ]]"
+    assert "piped execution no source" "[[ '$output' == *'SOURCE='* && '$output' != *'test-tty-detection.sh'* ]]"
+    
+    # Test input redirection (should also be detected as piped)
+    output=$(bash < "$test_script" 2>&1)
+    assert "input redirection detected as piped" "[[ '$output' == *'PIPED=true'* ]]"
+    
+    # Clean up
+    rm -f "$test_script"
+    
+    echo
+}
 ##) tests
 
 ##( main

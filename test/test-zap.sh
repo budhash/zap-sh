@@ -556,6 +556,109 @@ integration_custom_function() { u.info "Integration function"; }
   
   echo
 }
+
+test_piped_execution() {
+  _section_header "Piped Execution"
+  
+  # Test help in piped mode
+  local output
+  output=$(cat "$ZAP_SCRIPT" | bash -s -- -h 2>&1 || true)
+  assert_contains "$output" "Lightning-fast bash script generator" "piped help displays correctly"
+  assert_contains "$output" "bash init" "piped help shows bash as command name"
+  
+  # Test version in piped mode
+  output=$(cat "$ZAP_SCRIPT" | bash -s -- -v 2>&1 || true)
+  assert_eq "0.0.0" "$output" "piped version returns 0.0.0"
+  
+  # Test init in piped mode
+  output=$(cat "$ZAP_SCRIPT" | bash -s -- init piped-test -t basic 2>&1)
+  assert_ok test -f "piped-test.sh" "piped init creates script"
+  assert_contains "$output" "created: piped-test.sh" "piped init shows success message"
+  
+  # Verify generated script has piped mode detection
+  assert_contains "$(cat piped-test.sh)" "__PIPED=" "generated script includes piped mode detection"
+  rm -f "piped-test.sh"
+  
+  # Test upgrade in piped mode - should fail gracefully
+  output=$(cat "$ZAP_SCRIPT" | bash -s -- upgrade 2>&1 || true)
+  assert_contains "$output" "upgrade not supported in piped execution mode" "piped upgrade shows error"
+  assert_contains "$output" "curl -sL" "piped upgrade shows installation instructions"
+  
+  # Test update in piped mode with a dummy file
+  echo "#!/usr/bin/env bash" > dummy-script.sh
+  output=$(cat "$ZAP_SCRIPT" | bash -s -- update -y -f dummy-script.sh 2>&1 || true)
+  assert_contains "$output" "template ID not found" "piped update attempts to work"
+  rm -f dummy-script.sh
+  
+  # Test init with custom variables in piped mode
+  output=$(cat "$ZAP_SCRIPT" | bash -s -- init piped-custom --author="Test Author" --email="test@example.com" 2>&1)
+  assert_ok test -f "piped-custom.sh" "piped init with variables creates script"
+  assert_contains "$(cat piped-custom.sh)" "Test Author" "piped init applies author variable"
+  assert_contains "$(cat piped-custom.sh)" "test@example.com" "piped init applies email variable"
+  rm -f "piped-custom.sh"
+  
+  echo
+}
+
+test_piped_mode_restriction() {
+  _section_header "Piped Mode Restriction"
+  
+  # Test that scripts can disable piped mode
+  local project="no-pipe-test-$$"
+  local script_file="${project}.sh"
+  
+  # Create a script that disables piped mode
+  assert_ok "$TOOL" init "$project" -t basic "creates project with basic template"
+  assert_ok test -f "$script_file" "script file exists"
+  
+  # Track files immediately after creation
+  track_test_file "$script_file"
+  
+  # Change __ALLOW_PIPED from true to false
+  sed -i.bak 's/readonly __ALLOW_PIPED=true/readonly __ALLOW_PIPED=false/' "$script_file"
+  
+  # Track the backup file created by sed
+  track_test_file "${script_file}.bak"
+  
+  # Test normal execution - should work
+  local output
+  output=$("./$script_file" -h 2>&1 || true)
+  assert_contains "$output" "USAGE:" "normal execution works with __ALLOW_PIPED=false"
+  
+  # Test piped execution - should fail with proper error
+  output=$(cat "$script_file" | bash 2>&1 || true)
+  assert_contains "$output" "script is disabled in piped mode" "piped execution fails with error message"
+  
+  # Check exit code is _E_PIPE (8)
+  # Temporarily disable set -e to capture exit code
+  set +e
+  cat "$script_file" | bash >/dev/null 2>&1
+  local exit_code=$?
+  set -e
+  [[ "${DEBUG:-false}" == "true" ]] && echo "[debug] Exit code from piped execution: $exit_code" >&2
+  assert_eq "8" "$exit_code" "piped execution exits with _E_PIPE (8)"
+  
+  # Test with enhanced template
+  local enhanced_project="no-pipe-enhanced-$$"
+  local enhanced_file="${enhanced_project}.sh"
+  
+  assert_ok "$TOOL" init "$enhanced_project" -t enhanced "creates enhanced project"
+  
+  # Track files immediately
+  track_test_file "$enhanced_file"
+  
+  # Change __ALLOW_PIPED from true to false
+  sed -i.bak 's/readonly __ALLOW_PIPED=true/readonly __ALLOW_PIPED=false/' "$enhanced_file"
+  
+  # Track the backup file
+  track_test_file "${enhanced_file}.bak"
+  
+  output=$(cat "$enhanced_file" | bash 2>&1 || true)
+  [[ "${DEBUG:-false}" == "true" ]] && echo "[debug] Enhanced template output: '$output'" >&2
+  assert_contains "$output" "script is disabled in piped mode" "enhanced template respects __ALLOW_PIPED"
+  
+  echo
+}
 ##) tests
 
 ##( init

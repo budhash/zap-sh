@@ -52,6 +52,7 @@ zap-sh generates bash scripts from templates, similar to how cookiecutter works 
 - Built-in license templates (MIT, Apache, GPL)
 - Your code stays safe during framework updates
 - Works on Linux (macOS coming soon)
+- Piped execution support with configurable restrictions
 - Automatic updates from GitHub
 
 ## Quick Start
@@ -424,6 +425,40 @@ ZAP_HOME=/path         # Custom template directory location
 ZAP_REMOTE=https://... # Custom remote repository for templates
 DEBUG=true             # Enable debug logging
 ```
+
+## Script Configuration
+
+Generated scripts have several configuration options in the `##[ config` section:
+
+### Piped Execution Support
+
+Scripts can be executed via pipe (e.g., `curl ... | bash`), which is useful for installation scripts. This behavior is controlled by the `__ALLOW_PIPED` variable:
+
+```bash
+##[ config
+readonly __NAME=my-script
+readonly __OS=(mac linux)
+readonly __APP_DEPS=(curl jq)
+readonly __ALLOW_PIPED=true  # Set to false to disable piped execution
+##] config
+```
+
+When `__ALLOW_PIPED=false`, the script will:
+- Exit with error code 8 (`_E_PIPE`) when piped
+- Display error: "script is disabled in piped mode"
+- Work normally when executed directly
+
+This is useful for scripts that:
+- Need to read from stdin
+- Require file system access relative to the script location
+- Have security concerns about piped execution
+
+### Other Configuration Options
+
+- `__NAME`: Script name used in logs and messages
+- `__OS`: Array of supported operating systems
+- `__APP_DEPS`: Array of required external commands
+- `__ARG_AUTO`: (enhanced template only) Enable automatic argument parsing
 
 ## Workflow Examples
 

@@ -33,10 +33,18 @@ IFS=$'\n\t'     # Secure IFS
 ##) configuration
 
 ##( metadata
-readonly __APP="$(basename "${BASH_SOURCE[0]:-}")"
-readonly __APPFILE="${BASH_SOURCE[0]:-}"
-readonly __APPDIR="$(s="${BASH_SOURCE[0]:-}"; while [[ -h "$s" ]]; do
-  d="$(cd -P "$(dirname "$s")" && pwd)"; s="$(readlink "$s")"; [[ "$s" != /* ]] && s="$d/$s"; done; cd -P "$(dirname "$s")" && pwd)"
+readonly __SOURCE="${BASH_SOURCE[0]:-}"
+# Detect if script is being piped (no tty and no source file)
+readonly __PIPED=$([[ -t 0 || -n "$__SOURCE" ]] && echo false || echo true)
+readonly __APP="$(basename "${__SOURCE:-$0}")"
+readonly __APPFILE="$__SOURCE"
+# Resolve script directory
+if [[ -n "$__SOURCE" ]]; then
+  readonly __APPDIR="$(s="$__SOURCE"; while [[ -h "$s" ]]; do
+    d="$(cd -P "$(dirname "$s")" && pwd)"; s="$(readlink "$s")"; [[ "$s" != /* ]] && s="$d/$s"; done; cd -P "$(dirname "$s")" && pwd)"
+else
+  readonly __APPDIR="$(pwd)"
+fi
 
 readonly __L_NEW=${LOG_NEW:-true}
 readonly __L_FS=${LOG_FS:-false}
@@ -60,6 +68,7 @@ readonly _E_OS=4            # unsupported OS
 readonly _E_NF=5            # not found
 readonly _E_NP=6            # permission Error
 readonly _E_NC=7            # not connected
+readonly _E_PIPE=8          # piped mode
 ##] error
 
 ##[ network
@@ -345,6 +354,7 @@ readonly __NAME=template
 readonly __OS=(mac linux)
 readonly __APP_DEPS=(find)
 readonly __ARG_AUTO=true
+readonly __ALLOW_PIPED=true  # Set to false to disable piped execution (e.g., curl | bash)
 # format: "short_spec|variable_name|long_name|description"
 readonly __APP_OPTS=(
   "n:|_name|name|Your name for personalized greeting"
@@ -508,6 +518,8 @@ _args() {
 }
 
 _boot() {
+  [[ "$__PIPED" == true && "$__ALLOW_PIPED" == false ]] && { u.error "script is disabled in piped mode"; exit $_E_PIPE; }
+  
   readonly __LOG="./${__APP}.log"
 
   u.debug "location:"
@@ -578,18 +590,16 @@ _cleanup() {
 }
 trap _cleanup EXIT
 
-if [[ "${BASH_SOURCE[0]:-}" == "${0}" ]]; then
-  _boot
-  _init "$@"
-  # Execute _main in a subshell to isolate its environment.
-  # It restores the default IFS for user code and prevents variables created in _main from polluting the global scope.
-  (
-    IFS=$' \t\n' # Restore default IFS for user-land code
-    if [[ "$__ARG_AUTO" == true ]]; then
-      _main "${__ARG_FNL[@]:-}"
-    else
-      _main "$@"
-    fi
-  )
-fi
+_boot || exit $?
+_init "$@"
+# Execute _main in a subshell to isolate its environment.
+# It restores the default IFS for user code and prevents variables created in _main from polluting the global scope.
+(
+  IFS=$' \t\n' # Restore default IFS for user-land code
+  if [[ "$__ARG_AUTO" == true ]]; then
+    _main "${__ARG_FNL[@]:-}"
+  else
+    _main "$@"
+  fi
+)
 ##) core
