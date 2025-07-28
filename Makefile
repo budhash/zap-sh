@@ -36,6 +36,7 @@ help:
 	@echo "  $(GREEN)bump-major$(NC)         Auto-increment major (1.0.0 -> 2.0.0)"
 	@echo "  $(GREEN)bump-pre$(NC)           Add pre-release (make bump-pre PRERELEASE=alpha.1)"
 	@echo "  $(GREEN)sync-version$(NC)       Sync all files from version.txt"
+	@echo "  $(GREEN)update-self$(NC)        Update zap-sh framework using itself"
 	@echo "  $(GREEN)update-deps$(NC)        Download latest ver-kit and sem-ver tools"
 	@echo ""
 	@echo "$(YELLOW)Examples:$(NC)"
@@ -202,6 +203,22 @@ sync-version: check-tools
 		echo "$(YELLOW)Create version.txt with a version like: echo '1.0.0' > version.txt$(NC)"; \
 		exit 1; \
 	fi
+
+## Update zap-sh's own framework using itself (dogfooding)
+update-self:
+	@echo "$(YELLOW)Updating zap-sh framework using zap-sh...$(NC)"
+	@if [ ! -x ./zap-sh ]; then \
+		echo "$(RED)❌ zap-sh not found or not executable$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(BLUE)Current template ID: $$(grep '^# __ID__:' zap-sh | cut -d: -f2 | xargs)$(NC)"
+	@echo "$(YELLOW)Running: ./zap-sh update -y -f zap-sh$(NC)"
+	@./zap-sh update -y -f zap-sh || { \
+		echo "$(RED)❌ Update failed$(NC)"; \
+		exit 1; \
+	}
+	@echo "$(GREEN)✅ zap-sh framework updated successfully$(NC)"
+	@echo "$(BLUE)New template ID: $$(grep '^# __ID__:' zap-sh | cut -d: -f2 | xargs)$(NC)"
 
 sync-templates: check-tools
 	@echo "$(YELLOW)Syncing version files from version.txt...$(NC)"
