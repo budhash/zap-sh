@@ -52,6 +52,9 @@ config.local.*
 coverage/
 *.coverage
 
+# Generated release files
+RELEASE_NOTES.md
+
 # Shell history
 .bash_history
 .zsh_history

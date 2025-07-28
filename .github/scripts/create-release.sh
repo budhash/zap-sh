@@ -16,11 +16,16 @@ set -eEuo pipefail; IFS=$'\n\t'  # fail fast, secure IFS
 ##) configuration
 
 ##( metadata
-readonly __ID="basic-1.0.0"
-readonly __APP="$(basename "${BASH_SOURCE[0]:-}")"
-readonly __APPFILE="${BASH_SOURCE[0]}"
-readonly __APPDIR="$(s="${BASH_SOURCE[0]}"; while [[ -h "$s" ]]; do 
-  d="$(cd -P "$(dirname "$s")" && pwd)"; s="$(readlink "$s")"; [[ "$s" != /* ]] && s="$d/$s"; done; cd -P "$(dirname "$s")" && pwd)"
+readonly __SOURCE="${BASH_SOURCE[0]:-}"
+readonly __PIPED=$([[ -t 0 || -n "$__SOURCE" ]] && echo false || echo true)
+readonly __APP="$(basename "${__SOURCE:-$0}")"
+readonly __APPFILE="$__SOURCE"
+if [[ -n "$__SOURCE" ]]; then
+  readonly __APPDIR="$(s="$__SOURCE"; while [[ -h "$s" ]]; do
+    d="$(cd -P "$(dirname "$s")" && pwd)"; s="$(readlink "$s")"; [[ "$s" != /* ]] && s="$d/$s"; done; cd -P "$(dirname "$s")" && pwd)"
+else
+  readonly __APPDIR="$(pwd)"
+fi
 __DBG=${DEBUG:-false}
 ##) metadata
 
@@ -32,8 +37,8 @@ _RST=$'\033[0m' _GRN=$'\033[0;32m' _YLW=$'\033[0;33m' _RED=$'\033[0;31m' _BLU=$'
 ##] colors
 
 ##[ error
-# general failure / bad usage / dependency not found / unsupported OS / not found / permission error / not connected
-readonly _E=1 _E_USG=2 _E_DEP=3 _E_OS=4 _E_NF=5 _E_NP=6 _E_NC=7  
+# general failure / bad usage / dependency not found / unsupported OS / not found / permission error / not connected / piped mode
+readonly _E=1 _E_USG=2 _E_DEP=3 _E_OS=4 _E_NF=5 _E_NP=6 _E_NC=7 _E_PIPE=8
 ##] error
 
 ##) globals
@@ -43,7 +48,7 @@ readonly _E=1 _E_USG=2 _E_DEP=3 _E_OS=4 _E_NF=5 _E_NP=6 _E_NC=7
 ##[ system
 u.os() { case "${OSTYPE:-}" in darwin*) echo mac;; linux*) echo linux;; *) echo unknown;; esac; }
 u.die() { u.error "$@"; exit $_E; }
-u.require() { 
+u.require() {
   local tool="${1:-}"
   [[ -z "$tool" ]] && { u.error "missing dependency name"; exit $_E_DEP; }
   if [[ "$tool" == /* ]] || [[ "$tool" == ./* ]] || [[ "$tool" == ../* ]]; then
@@ -214,14 +219,19 @@ EOF
     local extracted=false
     for pattern in "### $version" "### v$version_number" "## $version" "## v$version_number"; do
         if grep -q "$pattern" "$source_file"; then
-            # Extract from this version to next ### or ## or end of file
-            sed -n "/$pattern/,/^## /p" "$source_file" | sed '$d' > "$changelog_file"
-            # If file is empty (no next section), extract to end
-            if [[ ! -s "$changelog_file" ]]; then
-                sed -n "/$pattern/,\$p" "$source_file" > "$changelog_file"
+            # Use awk for more reliable extraction
+            # Extract from pattern to the line before the next ## or ### at start of line, or to EOF
+            awk -v pat="$pattern" '
+                $0 ~ pat { found=1 }
+                found && /^##[^#]/ && $0 !~ pat { exit }
+                found { print }
+                END { if (!found) exit 1 }
+            ' "$source_file" > "$changelog_file"
+            
+            if [[ -s "$changelog_file" ]]; then
+                extracted=true
+                break
             fi
-            extracted=true
-            break
         fi
     done
     
@@ -256,8 +266,9 @@ _create_release_archive() {
     # Copy all files and directories from package.txt
     _read_package "$release_dir"
     
-    # Create release notes
+    # Create release notes (both in archive and root for GitHub workflow)
     _extract_changelog "$version" "$project_name" "$release_dir/RELEASE_NOTES.md"
+    cp "$release_dir/RELEASE_NOTES.md" "$PROJECT_ROOT/RELEASE_NOTES.md"
     
     # Create archive in specified output directory
     u.info "Creating archive: ${release_name}.zip"
@@ -374,13 +385,12 @@ _cleanup() {
 
 ##( core
 _boot() {
+  [[ "$__PIPED" == true && "$__ALLOW_PIPED" == false ]] && { u.error "script is disabled in piped mode"; exit $_E_PIPE; }
   printf '%s\n' "${__OS[@]}" | grep -Fxq "$(u.os)" || u.die "unsupported OS: $(u.os) [required: ${__OS[*]}]"
   local _tool; for _tool in "${__APP_DEPS[@]:-}"; do u.require "$_tool"; done
 }
 
 trap _cleanup EXIT
-if [[ "${BASH_SOURCE[0]:-}" == "${0}" ]]; then
-  _boot
-  _main "$@"
-fi
+_boot
+_main "$@"
 ##) core
