@@ -579,10 +579,14 @@ test_piped_execution() {
   assert_contains "$(cat piped-test.sh)" "__PIPED=" "generated script includes piped mode detection"
   rm -f "piped-test.sh"
   
-  # Test upgrade in piped mode - should fail gracefully
+  # Test upgrade in piped mode - should fail gracefully for binary upgrade
   output=$(cat "$ZAP_SCRIPT" | bash -s -- upgrade 2>&1 || true)
-  assert_contains "$output" "upgrade not supported in piped execution mode" "piped upgrade shows error"
-  assert_contains "$output" "curl -sL" "piped upgrade shows installation instructions"
+  assert_contains "$output" "binary upgrade not supported in piped mode" "piped upgrade shows error for binary"
+  assert_contains "$output" "curl -Lo" "piped upgrade shows installation instructions"
+  
+  # Test upgrade with --templates-only in piped mode - should attempt to work
+  output=$(cat "$ZAP_SCRIPT" | bash -s -- upgrade --templates-only 2>&1 || true)
+  assert_not_contains "$output" "binary upgrade not supported in piped mode" "piped upgrade --templates-only allowed"
   
   # Test update in piped mode with a dummy file
   echo "#!/usr/bin/env bash" > dummy-script.sh

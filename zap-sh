@@ -20,11 +20,9 @@ set -eEuo pipefail; IFS=$'\n\t'  # fail fast, secure IFS
 
 ##( metadata
 readonly __SOURCE="${BASH_SOURCE[0]:-}"
-# Detect if script is being piped (no tty and no source file)
 readonly __PIPED=$([[ -t 0 || -n "$__SOURCE" ]] && echo false || echo true)
 readonly __APP="$(basename "${__SOURCE:-$0}")"
 readonly __APPFILE="$__SOURCE"
-# Resolve script directory
 if [[ -n "$__SOURCE" ]]; then
   readonly __APPDIR="$(s="$__SOURCE"; while [[ -h "$s" ]]; do
     d="$(cd -P "$(dirname "$s")" && pwd)"; s="$(readlink "$s")"; [[ "$s" != /* ]] && s="$d/$s"; done; cd -P "$(dirname "$s")" && pwd)"
@@ -84,7 +82,7 @@ u.debug() { u.log -l "debug" "$@"; }
 
 ##[ config
 readonly __NAME=zap-sh
-readonly __DEV_MODE=${ZAP_DEV:-true}
+readonly __DEV_MODE=${ZAP_DEV:-false}
 readonly __OS=(mac linux)
 readonly __APP_DEPS=(find curl)
 readonly __ALLOW_PIPED=true  # Set to false to disable piped execution (e.g., curl | bash)
@@ -128,6 +126,12 @@ _main() {
     echo >&2  # Add blank line
     _help
     exit $_E_USG
+  fi
+
+  # Auto-bootstrap for all commands except upgrade
+  if [[ "$cmd" != "upgrade" ]] && ! ensure_templates_ready; then
+    show_install_instructions "Automatic setup failed - manual installation required"
+    exit $_E_NF
   fi
 
   # Dispatch to command handlers
@@ -355,22 +359,20 @@ cmd_update() {
 cmd_upgrade() {
   u.debug "upgrade command called with args: $*"
 
-  # Check if running in piped mode
-  if [[ "$__PIPED" == true ]]; then
-    u.error "upgrade not supported in piped execution mode"
-    cat >&2 << EOF
-
-To install $__NAME, run:
-  curl -sL $_ZAP_REMOTE/$__NAME | bash -s -- init my-project
-
-Or download and run directly:
-  curl -sL $_ZAP_REMOTE/$__NAME -o $__NAME && chmod +x $__NAME
-EOF
-    return $_E_USG
-  fi
-
   local force=false
-  [[ "${1:-}" == "--force" ]] && force=true
+  local templates_only=false
+  
+  # Parse options
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --force) force=true; shift ;;
+      --templates-only) templates_only=true; shift ;;
+      *) u.error "unknown option: $1"; return $_E_USG ;;
+    esac
+  done
+
+  # In piped mode, only allow templates-only
+  [[ "$__PIPED" == true && "$templates_only" != true ]] && { show_install_instructions "binary upgrade not supported in piped mode"; return $_E_USG; }
 
   u.info "checking for updates..."
 
@@ -401,8 +403,12 @@ EOF
     u.info "performing first-time setup or forced upgrade"
   fi
 
-  perform_upgrade || { u.error "upgrade failed"; return $_E; }
-  u.info "upgrade completed successfully"
+  # Perform appropriate upgrade
+  if [[ "$templates_only" == true ]]; then
+    perform_upgrade_templates || { u.error "template upgrade failed"; return $_E; }
+  else
+    perform_upgrade_full || { u.error "upgrade failed"; return $_E; }
+  fi
 }
 ##] commands
 
@@ -451,73 +457,7 @@ get_config_dir() {
   echo "$xdg_config/$__NAME"
 }
 
-validate_config_setup() {
-  local config_dir="$1"
-  local validation_errors=0
 
-  # Test directory is writable
-  [[ -w "$config_dir" ]] || { u.error "config directory not writable: $config_dir"; return $_E_NP; }
-
-  # Test essential templates exist using generic system
-  local template_dir="$config_dir/templates"
-  [[ -d "$template_dir" ]] || { u.error "templates directory missing: $template_dir"; return $_E_NF; }
-
-  # Validate each known template
-  local template missing_templates=()
-  for template in "${_TEMPLATES[@]}"; do
-    local template_file="$template_dir/${template}.sh"
-    if [[ -f "$template_file" ]]; then
-      u.debug "found template: ${template}.sh"
-    else
-      missing_templates+=("${template}.sh")
-    fi
-  done
-
-  # Handle missing templates
-  if [[ ${#missing_templates[@]} -gt 0 ]]; then
-    if [[ ${#missing_templates[@]} -eq ${#_TEMPLATES[@]} ]]; then
-      # All templates missing - critical error
-      u.error "no templates found in: $template_dir"
-      u.error "missing: ${missing_templates[*]}"
-      u.error "run '$__NAME upgrade' to download templates"
-      return $_E_NF
-    else
-      # Some templates missing - warn but continue
-      u.warn "missing templates: ${missing_templates[*]}"
-      u.warn "run '$__NAME upgrade' to ensure all templates available"
-    fi
-  fi
-
-  # Validate license directory (optional feature)
-  local licenses_dir="$config_dir/templates/licenses"
-  if [[ -d "$licenses_dir" ]]; then
-    local license_count
-    license_count=$(find "$licenses_dir" -name "*.txt" -type f 2>/dev/null | wc -l)
-    if [[ $license_count -gt 0 ]]; then
-      u.debug "found $license_count license files"
-    else
-      u.debug "licenses directory exists but no license files found"
-    fi
-  else
-    u.debug "no licenses directory found (license features not available)"
-  fi
-
-  u.debug "config validation passed: $config_dir"
-  return 0
-}
-
-ensure_config_dir() {
-  local config_dir
-  config_dir=$(get_config_dir)
-
-  # Create if needed
-  [[ -d "$config_dir" ]] || mkdir -p "$config_dir" || { u.error "cannot create config dir: $config_dir"; return $_E_NP; }
-
-  # Validate setup
-  validate_config_setup "$config_dir" || return $?
-
-  echo "$config_dir"
-}
 
 get_template_dir() {
   # Dev mode: use local templates/ directory if it exists
@@ -559,7 +499,6 @@ get_template_file() {
   u.error "template file not found: $template_file"
   u.error "  dev mode: $__DEV_MODE"
   u.error "  searched: $template_path"
-  u.error "  hint: run '$__NAME upgrade' to download templates"
   return $_E_NF
 }
 
@@ -676,7 +615,7 @@ collect_wizard_variables() {
 
       vars_array+=("license=$license")
     else
-      u.error "no licenses available - run '$__APP upgrade' to download license templates"
+      u.error "no licenses available"
       exit $_E_NF
     fi
   fi
@@ -767,7 +706,6 @@ generate_project() {
       config_dir=$(get_config_dir)
       if ! license_content=$(apply_license "$license_code" "$config_dir" "${user_variables[@]}" "${default_variables[@]}" 2>/dev/null); then
         u.error "failed to apply license: '$license_code'"
-        u.error "run '$__APP upgrade' to ensure license templates are available"
         exit $_E_NF
       fi
 
@@ -908,6 +846,11 @@ download_manifest() {
   # Parse manifest and download files
   while IFS=':' read -r file_type file_path; do
     [[ "$file_type" =~ ^[[:space:]]*# ]] && continue  # Skip comments
+    
+    # Trim whitespace from both values
+    file_type=$(echo "$file_type" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    file_path=$(echo "$file_path" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    
     [[ -z "$file_type" || -z "$file_path" ]] && continue  # Skip empty lines
 
     case "$file_type" in
@@ -1099,15 +1042,82 @@ update_script() {
   return 0
 }
 
-perform_upgrade() {
+# Ensure config directory exists and is writable
+ensure_config_dir() {
+  local config_dir
+  config_dir=$(get_config_dir)
+  
+  # Create directory if it doesn't exist
+  [[ -d "$config_dir" ]] || mkdir -p "$config_dir" || { u.error "cannot create config dir: $config_dir"; return $_E_NP; }
+  
+  # Test directory is writable
+  [[ -w "$config_dir" ]] || { u.error "config directory not writable: $config_dir"; return $_E_NP; }
+  
+  echo "$config_dir"
+}
+
+# Ensure templates are ready (download if needed)
+ensure_templates_ready() {
+  # In dev mode, we use local templates
+  [[ "$__DEV_MODE" == true ]] && return 0
+  
+  # If templates exist, we're done
+  templates_exist && return 0
+  
+  # Otherwise, create config dir and download templates
   local config_dir
   config_dir=$(ensure_config_dir) || return $?
-
-  # Step 1: Download templates first
-  u.info "downloading templates and licenses..."
+  
+  u.info "First-time setup: downloading templates..."
   download_manifest "$config_dir" || { u.error "template download failed"; return $_E_NC; }
+  u.info "templates installed successfully"
+}
 
-  # Step 2: Download and replace binary
+# Show installation instructions (centralized for consistency)
+show_install_instructions() {
+  local context="${1:-}"  # Optional context for why instructions are shown
+  
+  [[ -n "$context" ]] && u.error "$context"
+  
+  cat >&2 << EOF
+
+To install $__NAME, download and run directly:
+
+  # Option 1: User installation (recommended)
+  curl -Lo ~/.local/bin/$__NAME $_ZAP_REMOTE/$__NAME
+  chmod +x ~/.local/bin/$__NAME
+  
+  # Download templates
+  ~/.local/bin/$__NAME upgrade
+  
+  # Create your first script
+  ~/.local/bin/$__NAME init my-script
+
+  # Option 2: System-wide installation
+  sudo curl -Lo /usr/local/bin/$__NAME $_ZAP_REMOTE/$__NAME
+  sudo chmod +x /usr/local/bin/$__NAME
+  $__NAME upgrade
+  $__NAME init my-script
+
+Note: Make sure ~/.local/bin is in your PATH for user installation.
+
+EOF
+}
+
+perform_upgrade_templates() {
+  local config_dir
+  config_dir=$(ensure_config_dir) || return $?
+  
+  u.info "downloading templates..."
+  download_manifest "$config_dir" || { u.error "template download failed"; return $_E_NC; }
+  u.info "templates installed successfully"
+}
+
+perform_upgrade_full() {
+  # Download templates first
+  perform_upgrade_templates || return $?
+  
+  # Then download and replace binary
   local binary_url="$_ZAP_REMOTE/$__NAME"
   local temp_binary
   temp_binary=$(mktemp)

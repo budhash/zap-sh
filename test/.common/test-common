@@ -132,6 +132,18 @@ assert_contains() {
   fi
 }
 
+# Assertion: string does not contain substring
+assert_not_contains() {
+  _TESTS_RUN=$((_TESTS_RUN + 1))
+  local haystack="${1:-}" needle="${2:-}" desc="${3:-test}"
+  if [[ "$haystack" != *"$needle"* ]]; then
+    printf "  ${_GRN}✓${_RST} %s\n" "$desc"
+  else
+    _FAILURES=$((_FAILURES + 1))
+    printf "  ${_RED}✗${_RST} %s\n" "$desc"
+  fi
+}
+
 # Assertion: string matches regex
 assert_matches() {
   _TESTS_RUN=$((_TESTS_RUN + 1))

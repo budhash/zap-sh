@@ -62,7 +62,7 @@ zap-sh generates bash scripts from templates, similar to how cookiecutter works 
 curl -Lo ~/.local/bin/zap-sh https://raw.githubusercontent.com/budhash/zap-sh/main/zap-sh
 chmod +x ~/.local/bin/zap-sh
 
-# Create your first script (recommended)
+# Create your first script (templates auto-download on first use)
 zap-sh init -w
 
 # Or quick generation
@@ -176,6 +176,7 @@ zap-sh init -w               # Interactive guided setup (recommended)
 zap-sh update -f <script>    # Update framework sections (preserves your code)
 zap-sh snip -f <script>      # Extract sections for reuse
 zap-sh upgrade               # Update zap-sh binary and templates
+zap-sh upgrade --templates-only  # Update only templates (useful in piped mode)
 ```
 
 ### Script Generation (`init`)
@@ -582,6 +583,10 @@ Generated scripts inherit their license from the template used (configurable via
 - Section extraction with `zap-sh snip`
 - Self-updating with `zap-sh upgrade`
 - Built-in license support (MIT, Apache, GPL)
+- Zero-friction setup with automatic template downloads on first use
+- Piped execution support for one-line installations
+- `--templates-only` flag for upgrade command
+- Production-ready defaults (development mode off)
 
 #### Templates
 - **Basic Template**: Essential utilities for simple scripts (~200 lines)
