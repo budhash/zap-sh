@@ -219,6 +219,13 @@ update-self:
 	}
 	@echo "$(GREEN)✅ zap-sh framework updated successfully$(NC)"
 	@echo "$(BLUE)New template ID: $$(grep '^# __ID__:' zap-sh | cut -d: -f2 | xargs)$(NC)"
+	@echo ""
+	@echo "$(YELLOW)Updating create-release.sh script...$(NC)"
+	@./zap-sh update -y -f .github/scripts/create-release.sh || { \
+		echo "$(RED)❌ create-release.sh update failed$(NC)"; \
+		exit 1; \
+	}
+	@echo "$(GREEN)✅ create-release.sh updated successfully$(NC)"
 
 sync-templates: check-tools
 	@echo "$(YELLOW)Syncing version files from version.txt...$(NC)"
