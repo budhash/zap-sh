@@ -71,27 +71,29 @@ update-scripts: check-network
 	@echo "  sem-ver: $$(cd .github/scripts && ./sem-ver -v 2>/dev/null || echo 'unknown')"
 	@echo "  ver-kit: $$(cd .github/scripts && ./ver-kit -v 2>/dev/null || echo 'unknown')"
 
-## Run all test suites using unified test driver
-test:
-	@echo "$(YELLOW)Running all test suites...$(NC)"
+# Common test runner function
+define run-tests
 	@if [ -f test/.common/test-driver ]; then \
-		chmod +x test/.common/test-driver && ./test/.common/test-driver; \
+		chmod +x test/.common/test-driver && \
+		ZAP_HOME="$(PWD)/test/test-config" $(1) test/.common/test-driver; \
+		rm -rf "$(PWD)/test/test-config"; \
 	else \
 		echo "$(RED)❌ test/.common/test-driver not found$(NC)"; \
 		echo "$(YELLOW)Please ensure test framework is set up$(NC)"; \
 		exit 1; \
 	fi
+endef
+
+## Run all test suites using unified test driver
+test:
+	@echo "$(YELLOW)Running all test suites...$(NC)"
+	$(call run-tests,)
 
 ## Run tests with system Bash (3.2 on macOS)
 test-bash3:
 	@echo "$(YELLOW)Running tests with system Bash (/bin/bash)...$(NC)"
 	@echo "$(BLUE)Bash version: $$(/bin/bash --version | head -1)$(NC)"
-	@if [ -f test/.common/test-driver ]; then \
-		chmod +x test/.common/test-driver && /bin/bash test/.common/test-driver; \
-	else \
-		echo "$(RED)❌ test/.common/test-driver not found$(NC)"; \
-		exit 1; \
-	fi
+	$(call run-tests,/bin/bash)
 
 ## Run tests with both system and modern Bash
 test-all: test

@@ -34,11 +34,9 @@ IFS=$'\n\t'     # Secure IFS
 
 ##( metadata
 readonly __SOURCE="${BASH_SOURCE[0]:-}"
-# Detect if script is being piped (no tty and no source file)
 readonly __PIPED=$([[ -t 0 || -n "$__SOURCE" ]] && echo false || echo true)
 readonly __APP="$(basename "${__SOURCE:-$0}")"
 readonly __APPFILE="$__SOURCE"
-# Resolve script directory
 if [[ -n "$__SOURCE" ]]; then
   readonly __APPDIR="$(s="$__SOURCE"; while [[ -h "$s" ]]; do
     d="$(cd -P "$(dirname "$s")" && pwd)"; s="$(readlink "$s")"; [[ "$s" != /* ]] && s="$d/$s"; done; cd -P "$(dirname "$s")" && pwd)"
