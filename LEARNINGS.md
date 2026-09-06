@@ -2,6 +2,57 @@
 
 Insights, gotchas, and decisions from ongoing work. Newest first.
 
+## Release review (staging toward 1.1.0)
+
+Comprehensive pre-release review of both sh and js (two adversarial review
+passes). Baseline is healthy: all 5 suites pass, shellcheck clean, no banned
+Bash-4 features, no `eval`/`curl -k`, injection-safe value substitution
+(pure-bash `${//}`), atomic section replacement, `##( app` preservation correct,
+and JS↔bash parity verified across special chars, license casing, unknown
+licenses, empty/whitespace values, overrides, and validation regexes.
+
+**Release strategy (decided with the user):**
+- **`@budhash/zap-sh` 1.0.0** is a *faithful mirror of bash `zap-sh` v1.0.0* —
+  shipped as-is (templates/generation unchanged), published manually to npm.
+- **1.1.0** is a *trusted release* (CI/OIDC, no long-lived npm tokens) for
+  **both** sh + js, and is where the fixes below land together (fix bash +
+  regenerate conformance goldens + JS re-bundles the fixed templates).
+- "Version 1.0.0 everywhere" = the JS package only. `version=0.1.0` in `zap-sh`
+  and `SPEC.md` is the *default version stamped into newly-generated scripts* —
+  a different concept that stays `0.1.0`.
+
+**Fixes queued for 1.1.0** (ranked):
+1. HIGH — `apply_variables` (`zap-sh:963-964`) infinite-loops when a value
+   contains its own `{{placeholder}}` (e.g. `--detail='x {{detail}} y'`). Drop
+   the `while`; a single `${//}` pass suffices. JS is already single-pass, so
+   this *aligns* bash to JS. No conformance golden changes.
+2. HIGH — newline in a variable value: `cmd_init` round-trips collected vars
+   through a `printf`/`while read` channel, so a `\n` in a value truncates it or
+   (if the tail looks like `k=v`) injects a bogus variable. JS preserves the
+   value. Decide: reject newlines in values (both), or fix the round-trip.
+3. MEDIUM — `templates/enhanced.sh:397` calls `_u.debug` (should be `u.debug`);
+   generated enhanced scripts using a tempdir exit 127 + "command not found" on
+   exit. Template fix → regenerate enhanced goldens.
+4. MEDIUM — enhanced template writes `./<app>.log` unconditionally even with
+   file-logging off (`enhanced.sh:521,527`); gate behind `__L_FS`.
+5. LOW/MED — `snip -s` section name flows unsanitized into grep/sed; validate
+   against `_SECTIONS` / allowlist.
+6. LOW — `{{year}}` embedded in a value → clock year (bash) vs pinned year (JS);
+   the only placeholder-in-value that diverges (SPEC §6). Align by having bash's
+   default `year` respect an explicit `--year`.
+7. LOW — JS parity hardening: strip trailing newlines from `license_content`
+   (bash `$(cat)` strips them; today's licenses have none, so no-op now);
+   `output_path` is in bash's substitution map but not JS (no placeholder uses
+   it today). No-ops today, guard for future templates/licenses.
+8. LOW — `u.die` used for OS mismatch instead of `_E_OS`; ICMP-ping connectivity
+   gate blocks HTTPS-only networks; stray empty positional from `"${arr[@]:-}"`.
+- HARDENING — no checksum/signature on downloaded templates or the self-upgrade
+  binary; `ZAP_REMOTE` accepts `http://`. Consider SHA256 in `manifest.txt` and
+  refusing non-https remotes.
+
+Also: `release.yml` runs only Ubuntu (macOS commented out) and does not build/
+publish the JS package — both to address in the 1.1.0 trusted-release workflow.
+
 ## JS-generator initiative
 
 Goal: a first-class JavaScript generator + browser wizard that reproduce
