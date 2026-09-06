@@ -66,6 +66,14 @@ follow-up):**
    newline-terminate `tests.txt`), fix `SCRIPT_DIR` to the project root in
    `test-bash32-compat.sh`, then re-enable the suite.
 
+   **Resolved:** `test-driver` now reads with `|| [[ -n "$line" ]]` (last line no
+   longer dropped), `tests.txt` is newline-terminated, and the bash32 suite uses
+   `PROJECT_ROOT` for `zap-sh`/`templates` paths plus `ZAP_DEV=true` for its
+   `init` check. All 5 suites (incl. bash32, 36 checks) now run and pass under
+   real Bash 3.2. Note: the suite still has two unused functions
+   (`test_piped_execution_compatibility`, `test_tty_based_piped_detection`) that
+   `main()` doesn't call — candidate coverage to wire in later.
+
 ### JS generator (M3)
 
 `@budhash/zap-sh` (`packages/generator/`) ports the generation path to plain ESM

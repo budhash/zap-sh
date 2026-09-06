@@ -15,8 +15,9 @@ readonly YELLOW='\033[1;33m'
 readonly BLUE='\033[0;34m'
 readonly NC='\033[0m'
 
-# Get script directory
+# Get script directory (test/) and the project root that holds zap-sh + templates
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Test counters
 TESTS_RUN=0
@@ -142,14 +143,14 @@ test_zap_sh_compatibility() {
     echo
     
     # Test that zap-sh runs with /bin/bash
-    assert "zap-sh shows help with system bash" '/bin/bash "$SCRIPT_DIR/zap-sh" -h >/dev/null 2>&1'
-    assert "zap-sh shows version with system bash" '/bin/bash "$SCRIPT_DIR/zap-sh" -v >/dev/null 2>&1'
-    
-    # Test project creation with system bash
+    assert "zap-sh shows help with system bash" '/bin/bash "$PROJECT_ROOT/zap-sh" -h >/dev/null 2>&1'
+    assert "zap-sh shows version with system bash" '/bin/bash "$PROJECT_ROOT/zap-sh" -v >/dev/null 2>&1'
+
+    # Test project creation with system bash (dev mode uses the local templates/)
     local test_project="bash32test"
     rm -rf "$test_project.sh"
-    
-    assert "zap-sh creates project with system bash" '/bin/bash "$SCRIPT_DIR/zap-sh" init "$test_project" >/dev/null 2>&1'
+
+    assert "zap-sh creates project with system bash" 'ZAP_DEV=true /bin/bash "$PROJECT_ROOT/zap-sh" init "$test_project" >/dev/null 2>&1'
     assert "generated script exists" '[[ -f "$test_project.sh" ]]'
     assert "generated script is executable" '[[ -x "$test_project.sh" ]]'
     
@@ -167,10 +168,10 @@ test_template_compatibility() {
     echo
     
     # Test basic template
-    assert "basic template has valid Bash 3.2 syntax" '/bin/bash -n "$SCRIPT_DIR/templates/basic.sh" 2>/dev/null'
-    
+    assert "basic template has valid Bash 3.2 syntax" '/bin/bash -n "$PROJECT_ROOT/templates/basic.sh" 2>/dev/null'
+
     # Test enhanced template
-    assert "enhanced template has valid Bash 3.2 syntax" '/bin/bash -n "$SCRIPT_DIR/templates/enhanced.sh" 2>/dev/null'
+    assert "enhanced template has valid Bash 3.2 syntax" '/bin/bash -n "$PROJECT_ROOT/templates/enhanced.sh" 2>/dev/null'
     
     # Check templates don't contain prohibited features
     local prohibited_patterns=(
@@ -188,13 +189,13 @@ test_template_compatibility() {
     print_test "INFO" "Checking for prohibited patterns in templates..."
     
     for pattern in "${prohibited_patterns[@]}"; do
-        if grep -qE "$pattern" "$SCRIPT_DIR/templates/basic.sh"; then
+        if grep -qE "$pattern" "$PROJECT_ROOT/templates/basic.sh"; then
             assert_fails "basic.sh contains prohibited pattern: $pattern" false
         else
             assert "basic.sh free of pattern: $pattern" true
         fi
-        
-        if grep -qE "$pattern" "$SCRIPT_DIR/templates/enhanced.sh"; then
+
+        if grep -qE "$pattern" "$PROJECT_ROOT/templates/enhanced.sh"; then
             assert_fails "enhanced.sh contains prohibited pattern: $pattern" false
         else
             assert "enhanced.sh free of pattern: $pattern" true
