@@ -82,3 +82,27 @@ jobs:
       - name: Test summary
         run: |
           echo "✅ Tests completed on ${{ matrix.description }}"
+
+  js-generator:
+    name: JS generator (parity)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: packages/generator
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: packages/generator/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Conformance (JS generator vs bash goldens)
+        run: npm test
