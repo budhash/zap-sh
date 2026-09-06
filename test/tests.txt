@@ -1,8 +1,15 @@
 # Test configuration file for zap-sh
 # Lists test files to be executed by test-driver
 # One test file per line, paths relative to test directory
+#
+# NOTE: test-driver reads this with `while read`, which drops a final line
+# that has no trailing newline. test-bash32-compat.sh is intentionally kept
+# last (and this file intentionally ends without a trailing newline) to
+# preserve its long-standing skipped status on main. See LEARNINGS.md
+# ("Conformance suite (M2)") for the two pre-existing bugs this uncovered.
 
 test-zap.sh
 test-template-basic.sh
 test-template-enhanced.sh
+test-conformance.sh
 test-bash32-compat.sh

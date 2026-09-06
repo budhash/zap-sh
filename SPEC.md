@@ -132,10 +132,25 @@ precedence over the computed default.** For a given name, only the **first**
 `key=value` among the user variables is used (later duplicates are dead once the
 placeholder is gone).
 
-Substituted values are **not** re-scanned for placeholders introduced by an
-earlier substitution across *different* variable names, except `license_content`,
-which is produced by a **prior** substitution pass over the license file (§7)
-before it becomes a value in the main pass.
+**Sequential, whole-buffer substitution.** Each variable's pass replaces its
+placeholder across the *entire current buffer*, including text introduced by an
+earlier variable's value. Consequently a placeholder token that first appears
+*because* an earlier variable's value contained it **is** substituted — but only
+by a variable processed **later** in the sequence, never by one already applied.
+Worked example (basic template, `--year=2025`, no author):
+
+- `detail="has {{version}} literal"` → the `{{version}}` token, introduced when
+  `detail` is applied, is later replaced by the default `version=0.1.0`
+  (processed after `detail`) → `has 0.1.0 literal`.
+- `description="has {{author}} literal"` → `{{author}}` is later replaced by the
+  default `author=anonymous` → `has anonymous literal`.
+
+The order is therefore load-bearing: user variables first (in the order given),
+then the defaults in the fixed sequence `app, year, detail, description,
+author, version, email, license_name, license_content`. `license_content` is a
+special case: it is produced by a **prior** substitution pass over the license
+file (§7) — using the full variable map — before it enters the main pass as a
+value.
 
 ## 5. Output assembly
 
@@ -161,15 +176,29 @@ trailing blank line.
 
 ## 6. Determinism
 
-`year` is the only clock-derived input. For reproducible output (and for the
-conformance suite), `year` MUST be pinnable:
+`year` is the only clock-derived input (`date +%Y`). For reproducible output
+(and for the conformance suite), `year` MUST be pinnable:
 
-- Bash: pass `--year=<YYYY>` (a user variable, so it wins over `date +%Y`).
+- Bash: pass `--year=<YYYY>` (a user variable, so it is applied before the
+  default `year=$(date +%Y)`).
 - JS: `generate()` accepts an explicit `year`; it MUST NOT read the system clock
   implicitly when `year` is provided.
 
-All conformance fixtures pin `year`. No other generation input depends on
-ambient state (locale, timezone, environment) for the produced bytes.
+**Precise scope of `--year`.** The default `year=$(date +%Y)` is *always* part of
+the variable map, appended after the user variables. Because substitution is
+sequential (§4.3), the pinned user `year` wins for every `{{year}}` token that is
+present in the template or license text at the start of the pass (this is all
+real occurrences — the enhanced header's `Copyright (C) {{year}}` and the license
+files' `{{year}}`). The **only** residual clock dependence is the pathological
+case where a *user-supplied value* itself contains the literal token `{{year}}`:
+that token is introduced after the user `year` pass has run, so it is caught by
+the later default `year` (the clock value), not the pinned one. Conformance
+fixtures therefore never embed `{{year}}` inside a field value; the ordering rule
+is instead locked with `{{version}}`/`{{author}}` (see the
+`basic-placeholder-literal` fixture).
+
+Apart from `year`, no generation input depends on ambient state (locale,
+timezone, environment) for the produced bytes.
 
 ## 7. Licenses
 

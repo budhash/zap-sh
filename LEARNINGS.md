@@ -1,0 +1,67 @@
+# LEARNINGS
+
+Insights, gotchas, and decisions from ongoing work. Newest first.
+
+## JS-generator initiative
+
+Goal: a first-class JavaScript generator + browser wizard that reproduce
+`zap-sh init` byte-for-byte, kept honest by a shared conformance suite. The bash
+script is the oracle; on disagreement bash wins unless it's a genuine bash bug.
+See `SPEC.md` and `test/conformance/README.md`.
+
+### Generation contract (M1)
+
+- The whole `init` output reduces to: fresh `#!/usr/bin/env bash` shebang, then
+  each section (`header, configuration, metadata, globals, helpers, app, core`)
+  extracted with `sed -n '/^##( name$/,/^##) name$/p'`, variable-substituted, and
+  joined with one `\n`. Single trailing newline. The template's own line-1
+  shebang is dropped.
+- Substitution is literal bash string replacement (`${r//"{{k}}"/"$v"}`), not
+  sed — so `&`, `/`, `\` in values need no escaping. Empty values render empty
+  (`# AUTHOR: anonymous <>`).
+
+### Conformance suite (M2)
+
+**Substitution is sequential and whole-buffer (corrected the spec).** Each
+variable pass replaces its token across the entire current buffer, including text
+introduced by an *earlier* variable's value. So `detail="has {{version}} literal"`
+ends up as `has 0.1.0 literal` (the default `version` runs after `detail`). A
+token is caught only by a variable processed *later*, never an earlier one. Order
+is load-bearing: user vars first (in given order), then defaults in
+`app, year, detail, description, author, version, email, license_name,
+license_content`. The JS generator must replicate this exact order.
+
+**`--year` does not fully determinize.** The default `year=$(date +%Y)` is always
+appended after user vars. `--year` pins every `{{year}}` present in the template
+/license text (all real occurrences), but a `{{year}}` embedded inside a *field
+value* is introduced after the user-year pass and is caught by the later default
+(clock) year → time-dependent output. **Decision:** fixtures never embed
+`{{year}}` in a value; the ordering rule is locked with `{{version}}`/`{{author}}`
+instead. This bit us once — a golden file baked in the current year until the
+fixture was reworked.
+
+**`zap-sh init -o <existing-file>` prompts to overwrite**, and in a
+non-interactive script `u.confirm` reads EOF, returns non-yes, and **cancels
+silently** (exit 0, no write). So a regenerator that writes over existing golden
+files leaves them stale. **Fix:** always generate into a fresh path inside a
+private temp dir, then copy into place (`conf_generate` in
+`test/conformance/lib.sh`). The runner does the same, so it never depends on the
+golden path being absent.
+
+**Two pre-existing latent bugs uncovered (out of M2 scope, flagged for a
+follow-up):**
+
+1. `test/tests.txt` had no trailing newline, and `test-driver` reads it with
+   `while read`, which **drops the final newline-less line**. So the last-listed
+   suite silently never runs. On `main` that was `test-bash32-compat.sh` — it has
+   not executed in CI at all. M2 preserves that status quo (keeps bash32 last and
+   the file newline-terminated-less) so CI behavior is unchanged, and slots
+   `test-conformance.sh` ahead of it so conformance actually runs.
+2. `test-bash32-compat.sh` invokes `"$SCRIPT_DIR/zap-sh"` where `SCRIPT_DIR` is
+   the `test/` dir, so it points at the nonexistent `test/zap-sh`; the assertions
+   fail even though `/bin/bash ./zap-sh -h` works fine. The suite would fail if
+   un-skipped as-is.
+
+   **Recommended follow-up:** fix the driver to not drop the last line (or always
+   newline-terminate `tests.txt`), fix `SCRIPT_DIR` to the project root in
+   `test-bash32-compat.sh`, then re-enable the suite.

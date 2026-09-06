@@ -1,0 +1,14 @@
+{
+  "name": "basic-mit-full",
+  "template": "basic",
+  "project": "deploy",
+  "year": "2025",
+  "license": "mit",
+  "variables": {
+    "author": "Alice",
+    "email": "alice@corp.io",
+    "version": "2.3.1",
+    "detail": "Deploy helper",
+    "description": "Deploys things to places"
+  }
+}

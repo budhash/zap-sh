@@ -1,0 +1,14 @@
+{
+  "name": "enhanced-mit-full",
+  "template": "enhanced",
+  "project": "service",
+  "year": "2025",
+  "license": "mit",
+  "variables": {
+    "author": "Dev Team",
+    "email": "dev@svc.io",
+    "version": "1.0.0",
+    "detail": "A background service",
+    "description": "Runs the thing that does the stuff"
+  }
+}

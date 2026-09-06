@@ -1,0 +1,10 @@
+{
+  "name": "basic-placeholder-literal",
+  "template": "basic",
+  "project": "meta",
+  "year": "2025",
+  "variables": {
+    "detail": "has {{version}} literal",
+    "description": "has {{author}} literal"
+  }
+}
