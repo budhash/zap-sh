@@ -93,3 +93,28 @@ browser wizard (M4) can consume it. esbuild (only devDependency) emits ESM +
 CJS with templates inlined; `types/index.d.ts` is hand-written. Tests run against
 the built `dist/` so we validate the shipped artifact. CI gains a `js-generator`
 job running the same fixtures — bash and JS now both gate on `test/conformance/`.
+
+### Browser wizard (M4)
+
+`docs/index.html` is a static, client-side wizard on the shared budhash.com
+theme (`docs/theme.css`, vendored from the confix page). It imports
+`docs/zap-sh.js` — the generator built for the browser (`npm run build:web`,
+esbuild ESM, templates inlined) — and calls the same `generate()`, so the live
+preview is the real tool, not a re-implementation. Confirmed 11/11 parity by
+importing the browser bundle directly.
+
+- **`.mjs` vs `.js` on GitHub Pages:** named the browser bundle `zap-sh.js` (not
+  `.mjs`) so Pages serves it as `text/javascript`; loaded via
+  `<script type="module">`.
+- **Empty fields fall back to defaults:** the form only passes a variable when
+  its field is non-empty, so a blank author yields `anonymous` etc. — matching
+  `zap-sh init` with the flag omitted.
+- **Anti-drift guard:** the committed `docs/zap-sh.js` is a generated artifact
+  (Pages needs a static file), so CI rebuilds it and `git diff --exit-code`s to
+  fail if it is stale. esbuild output is deterministic for the pinned version.
+- The form targets zap-sh's real variables (template, project, detail,
+  description, author, email, version, license) — there is no `deps`/`options`
+  placeholder in the templates.
+- Not verified click-through in a live browser this session (the Chrome
+  extension was not connected); validated via the built bundle + static checks.
+  Visual confirmation to follow once Pages is live (M6).
