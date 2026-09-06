@@ -22,6 +22,7 @@
     "bundle": "node scripts/bundle-templates.mjs",
     "prebuild": "node scripts/bundle-templates.mjs",
     "build": "node scripts/build.mjs",
+    "build:web": "node scripts/bundle-templates.mjs && node scripts/build-web.mjs",
     "pretest": "npm run build",
     "test": "node --test test/*.test.mjs"
   },

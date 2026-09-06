@@ -106,3 +106,9 @@ jobs:
 
       - name: Conformance (JS generator vs bash goldens)
         run: npm test
+
+      - name: Verify docs/ web bundle is committed fresh
+        run: |
+          npm run build:web
+          git diff --exit-code -- ../../docs/zap-sh.js \
+            || { echo "::error::docs/zap-sh.js is stale — run 'npm run build:web' in packages/generator and commit the result"; exit 1; }
