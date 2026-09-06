@@ -65,3 +65,31 @@ follow-up):**
    **Recommended follow-up:** fix the driver to not drop the last line (or always
    newline-terminate `tests.txt`), fix `SCRIPT_DIR` to the project root in
    `test-bash32-compat.sh`, then re-enable the suite.
+
+### JS generator (M3)
+
+`@budhash/zap-sh` (`packages/generator/`) ports the generation path to plain ESM
+JS and passes all 11 shared conformance fixtures byte-for-byte. Keys to parity:
+
+- **Substitution order is everything.** The variable list must be assembled in
+  the exact bash order — user vars (year, license, then caller variables in
+  insertion order), then defaults (`app, year, detail, description, author?,
+  version?, email?, license_name, license_content?`). JS `Object.entries`
+  preserves insertion order, matching jq/`to_entries` and the bash CLI order.
+- **Empty `license_content` is omitted, not blanked.** When no license is
+  selected, the pair is not added, so `{{license_content}}` stays *literal* in
+  the enhanced header — reproduced by only pushing the pair when non-empty. The
+  `enhanced-default` fixture locks this.
+- **License content is a pre-pass.** The license text is substituted with the
+  variable map *without* `license_name`/`license_content` before it becomes a
+  value in the main pass (matches `apply_license`).
+- **Determinism:** `generate()` takes `year` and never reads the clock when it is
+  given; the default `year` in the list equals the provided one (harmless, since
+  fixtures never leave a `{{year}}` for it to catch — see M2).
+
+Build/packaging: templates are bundled from the repo `templates/` at build time
+(`scripts/bundle-templates.mjs`) so there is no runtime fs dependency and the
+browser wizard (M4) can consume it. esbuild (only devDependency) emits ESM +
+CJS with templates inlined; `types/index.d.ts` is hand-written. Tests run against
+the built `dist/` so we validate the shipped artifact. CI gains a `js-generator`
+job running the same fixtures — bash and JS now both gate on `test/conformance/`.

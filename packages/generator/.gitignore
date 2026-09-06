@@ -1,0 +1,4 @@
+node_modules/
+dist/
+# Generated at build time from ../../templates by scripts/bundle-templates.mjs
+src/templates.generated.js
