@@ -1,0 +1,11 @@
+{
+  "name": "basic-gpl",
+  "template": "basic",
+  "project": "cleaner",
+  "year": "2025",
+  "license": "gpl",
+  "variables": {
+    "author": "Carol",
+    "email": "carol@x.org"
+  }
+}

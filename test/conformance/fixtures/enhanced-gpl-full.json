@@ -1,0 +1,12 @@
+{
+  "name": "enhanced-gpl-full",
+  "template": "enhanced",
+  "project": "daemon",
+  "year": "2025",
+  "license": "gpl",
+  "variables": {
+    "author": "Daemon Dev",
+    "email": "d@d.io",
+    "version": "0.9.0"
+  }
+}

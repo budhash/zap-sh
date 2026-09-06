@@ -1,0 +1,13 @@
+{
+  "name": "basic-special-chars",
+  "template": "basic",
+  "project": "weird",
+  "year": "2025",
+  "license": "mit",
+  "variables": {
+    "author": "A & B <team>",
+    "email": "a+b@x.io",
+    "detail": "handles = and / chars",
+    "description": "path/to \"quoted\" & <angle> value"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "basic-apache",
+  "template": "basic",
+  "project": "backup",
+  "year": "2025",
+  "license": "apache",
+  "variables": {
+    "author": "Bob Smith"
+  }
+}

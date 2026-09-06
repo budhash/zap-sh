@@ -1,0 +1,10 @@
+{
+  "name": "basic-authored-nolicense",
+  "template": "basic",
+  "project": "mytool",
+  "year": "2025",
+  "variables": {
+    "author": "Jane Doe",
+    "email": "jane@example.com"
+  }
+}
