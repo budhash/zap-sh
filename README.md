@@ -114,15 +114,15 @@ zap-sh --help
 
 ### Templates
 
-**Basic Template** - Essential utilities for simple scripts (~200 lines)
+**Basic Template** - Essential utilities for simple scripts (~170 lines)
 - Cross-platform compatibility
 - Structured logging
 - Basic argument parsing
 - Error handling
 - [View basic.sh template →](https://github.com/budhash/zap-sh/blob/main/templates/basic.sh)
 
-**Enhanced Template** - Rich utilities for complex tools (~400+ lines)  
-- All basic features plus 60+ utility functions
+**Enhanced Template** - Rich utilities for complex tools (~600 lines)  
+- All basic features plus 40+ utility functions
 - JSON processing, HTTP helpers
 - Advanced argument parsing
 - Array and string operations
@@ -592,7 +592,7 @@ A: zap-sh focuses on updateable templates with section-based organization. Your 
 A: Yes! It's your script. Keep custom code in the `##( app` section to preserve it during updates.
 
 **Q: What's the difference between basic and enhanced templates?**  
-A: Basic (~200 lines) provides essential utilities for simple scripts. Enhanced (~400+ lines) includes 60+ utility functions for complex tools, JSON processing, and HTTP utilities.
+A: Basic (~170 lines) provides essential utilities for simple scripts. Enhanced (~600 lines) includes 40+ utility functions for complex tools, JSON processing, and HTTP utilities.
 
 **Q: Is bash 3.2 supported?**  
 A: Yes! Bash 3.2 is supported. This ensures scripts work on macOS (which ships with bash 3.2) without requiring users to upgrade bash.
@@ -634,8 +634,8 @@ Generated scripts inherit their license from the template used (configurable via
 - Production-ready defaults (development mode off)
 
 #### Templates
-- **Basic Template**: Essential utilities for simple scripts (~200 lines)
-- **Enhanced Template**: Comprehensive utilities with 60+ functions (~400+ lines)
+- **Basic Template**: Essential utilities for simple scripts (~170 lines)
+- **Enhanced Template**: Comprehensive utilities with 40+ functions (~600 lines)
 
 #### Compatibility
 - No runtime dependencies for generated scripts
