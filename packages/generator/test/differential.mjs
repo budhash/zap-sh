@@ -69,7 +69,10 @@ test('differential parity: JS matches live bash `zap-sh init` byte-for-byte', ()
 
           let bash;
           try {
-            execFileSync(ZAP, args, { env: { ...process.env, ZAP_DEV: 'true' }, stdio: 'ignore', timeout: 15000 });
+            // cwd: repo so ZAP_DEV mode finds the local templates/ (dev-mode
+            // resolves "templates" relative to the working directory), avoiding
+            // any network bootstrap — matching how the bash conformance suite runs.
+            execFileSync(ZAP, args, { cwd: repo, env: { ...process.env, ZAP_DEV: 'true' }, stdio: 'ignore', timeout: 15000 });
             bash = readFileSync(out, 'utf8');
           } catch (e) {
             mismatches.push({ template, license, project, vs, note: 'bash oracle failed: ' + String(e.message || e).slice(0, 80) });
