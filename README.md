@@ -8,7 +8,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/budhash/zap-sh)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/budhash/zap-sh)
 [![npm](https://img.shields.io/npm/v/@budhash/zap-sh?logo=npm&label=%40budhash%2Fzap-sh)](https://www.npmjs.com/package/@budhash/zap-sh)
 [![CI](https://github.com/budhash/zap-sh/workflows/CI/badge.svg)](https://github.com/budhash/zap-sh/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -623,6 +623,25 @@ MIT License. See [LICENSE](LICENSE) file for details.
 Generated scripts inherit their license from the template used (configurable via `--license` option or wizard).
 
 ## Changelog
+
+### v1.1.0
+
+#### JavaScript generator + wizard
+- `@budhash/zap-sh` — a JavaScript port of `zap-sh init`, published to npm, that
+  produces the same scripts byte-for-byte (Node and browser).
+- A live [browser wizard](https://budhash.com/zap-sh/) built on it.
+- Parity is enforced in CI by a shared `SPEC.md` + `test/conformance/` fixtures
+  and a differential test that diffs the live bash tool against the JS generator.
+
+#### Fixes
+- Variable substitution no longer hangs on a value that contains its own
+  placeholder (single pass).
+- Reject a newline inside a variable value (bash and JS agree).
+- Enhanced template: fix the `_app_cleanup` typo that made scripts exit 127, and
+  only write `<app>.log` when file-logging is enabled.
+- `snip -s` validates the section name before using it in grep/sed.
+- All remote downloads require HTTPS.
+- Re-enabled and repaired the Bash 3.2 compatibility test suite.
 
 ### v1.0.0 - Initial Release
 
