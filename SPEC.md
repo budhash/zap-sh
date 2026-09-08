@@ -12,7 +12,7 @@ output of the bash `zap-sh` script.
 The bash `zap-sh` script is the **reference oracle**. For identical inputs, any
 other implementation MUST produce **byte-for-byte identical** output. A shared,
 language-agnostic conformance suite (`test/conformance/`) is run by both the bash
-runner and the JS runner in CI so the two can never drift.
+runner and the JS runner in CI so the two stay in sync.
 
 If the JS implementation and bash disagree, **bash wins** — unless the difference
 is a genuine bash bug, in which case implementation STOPS and the discrepancy is
@@ -145,7 +145,7 @@ Worked example (basic template, `--year=2025`, no author):
 - `description="has {{author}} literal"` → `{{author}}` is later replaced by the
   default `author=anonymous` → `has anonymous literal`.
 
-The order is therefore load-bearing: user variables first (in the order given),
+The order therefore matters: user variables first (in the order given),
 then the defaults in the fixed sequence `app, year, detail, description,
 author, version, email, license_name, license_content`. `license_content` is a
 special case: it is produced by a **prior** substitution pass over the license

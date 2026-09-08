@@ -1,23 +1,19 @@
 # @budhash/zap-sh
 
 A JavaScript generator for [zap-sh](https://github.com/budhash/zap-sh) scripts.
-It reproduces the output of the bash `zap-sh init` command **byte-for-byte** —
-the bash script is the reference oracle, and a shared conformance suite
-(`test/conformance/` in the repo) verifies both implementations against the same
-fixtures and golden files so they can never drift. See
-[`SPEC.md`](../../SPEC.md) for the generation contract.
+It produces the same output as the bash `zap-sh init` command, byte-for-byte: a
+shared conformance suite runs the same fixtures through both the bash and JS
+generators in CI, so their output stays in sync. See the
+[generation spec](https://github.com/budhash/zap-sh/blob/main/SPEC.md).
 
-Scope: **generation only** (the `init` path — template choice, project metadata,
-license, variable substitution). `update`, `snip`, and `upgrade` are out of
-scope; use the bash tool for those.
+It covers `init` (generation) only — template choice, project metadata, license,
+and variable substitution. Use the bash tool for `update`, `snip`, and `upgrade`.
 
 ## Install
 
 ```bash
 npm install @budhash/zap-sh
 ```
-
-> Not yet published to npm. For now, build from the repo (see Development).
 
 ## Usage
 
