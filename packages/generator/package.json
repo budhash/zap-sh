@@ -26,7 +26,8 @@
     "build:web": "node scripts/bundle-templates.mjs && node scripts/build-web.mjs",
     "prepack": "npm run build",
     "pretest": "npm run build",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "test:diff": "npm run build && node --test test/differential.mjs"
   },
   "keywords": [
     "zap-sh",

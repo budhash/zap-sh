@@ -53,6 +53,19 @@ licenses, empty/whitespace values, overrides, and validation regexes.
 Also: `release.yml` runs only Ubuntu (macOS commented out) and does not build/
 publish the JS package — both to address in the 1.1.0 trusted-release workflow.
 
+**Parity net (landed, release-independent):** the conformance suite is not a
+versioned deliverable — it is the ongoing gate, with its own `SPEC-VERSION`. It
+now has two layers in CI: golden-file conformance (JS vs committed fixtures) and
+a **differential test** (`packages/generator/test/differential.mjs`, run by
+`npm run test:diff` in the `js-generator` job) that runs the live `zap-sh init`
+and the JS generator over ~240 input combinations and diffs byte-for-byte. The
+differential matrix deliberately excludes the known-divergent inputs (newlines,
+`{{year}}`-in-value, self-reference) until the 1.1.0 bash fixes land, at which
+point those move into the covered set. Architecture decision: bash and JS stay
+independent implementations (the browser needs pure JS; the CLI needs
+dependency-free bash) — parity is kept by shared templates + these gates, not by
+one calling the other.
+
 ## JS-generator initiative
 
 Goal: a first-class JavaScript generator + browser wizard that reproduce
