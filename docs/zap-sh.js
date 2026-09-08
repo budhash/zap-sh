@@ -833,10 +833,18 @@ function generate(opts = {}) {
   if (typeof project !== "string" || !PROJECT_RE.test(project)) {
     throw new Error(`invalid project name: '${project}' (letters/numbers/hyphens/underscores only)`);
   }
+  const noNewline = (name, v) => {
+    if (v !== void 0 && v !== null && String(v).includes("\n")) {
+      throw new Error(`variable value must not contain a newline: '${name}'`);
+    }
+  };
+  noNewline("year", year);
+  noNewline("license", license);
   for (const key of Object.keys(variables)) {
     if (!VARNAME_RE.test(key)) {
       throw new Error(`invalid variable name: '${key}' (must start with letter/underscore, contain only letters/numbers/underscore)`);
     }
+    noNewline(key, variables[key]);
   }
   const resolvedYear = String(year !== void 0 && year !== null && year !== "" ? year : (/* @__PURE__ */ new Date()).getFullYear());
   const userVars = [];

@@ -230,6 +230,9 @@ License files are `templates/licenses/*.txt`. Discovery and naming:
 
 - Project name must match `^[a-zA-Z0-9_-]+$`; else usage error.
 - `--key` names must match `^[a-zA-Z_][a-zA-Z0-9_]*$`; else usage error.
+- A user-provided value (any `--key=value`, including `--year`/`--license`) must
+  not contain a newline; else usage error. (Computed values such as
+  `license_content` are internal and exempt.)
 - Template must be one of `basic`, `enhanced`; else usage error.
 - A selected license code with no matching file is an error.
 

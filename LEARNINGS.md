@@ -27,10 +27,11 @@ licenses, empty/whitespace values, overrides, and validation regexes.
    (matches SPEC §4.3 and the JS generator). No golden changed; bash now equals
    JS on self-referential values, which are now in the differential matrix
    (288 combos).
-2. HIGH — newline in a variable value: `cmd_init` round-trips collected vars
-   through a `printf`/`while read` channel, so a `\n` in a value truncates it or
-   (if the tail looks like `k=v`) injects a bogus variable. JS preserves the
-   value. Decide: reject newlines in values (both), or fix the round-trip.
+2. ~~HIGH — newline in a variable value mangles/injects in bash, preserved in
+   JS.~~ **DONE** (decision: reject in both). bash rejects at parse time
+   (`--*=*`), JS in `generate()` validation; identical error, usage exit. Only
+   user-provided values are checked (computed `license_content` is exempt).
+   Documented in SPEC §8; tests added both sides.
 3. ~~MEDIUM — `templates/enhanced.sh:397` calls `_u.debug`.~~ **DONE.** Fixed to
    `u.debug` (verified `_app_cleanup` now exits 0, not 127); regenerated the 4
    enhanced goldens + the browser bundle; added a template guard test

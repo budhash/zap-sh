@@ -389,6 +389,9 @@ test_input_validation() {
   assert_fail "./$ZAP_SCRIPT" init "invalid name" "rejects name with spaces"
   assert_fail "./$ZAP_SCRIPT" init "invalid@name" "rejects name with special chars"
   assert_fail "./$ZAP_SCRIPT" init "invalid.name" "rejects name with dots"
+
+  # Reject a newline inside a variable value (would corrupt the collection round-trip)
+  assert_fail "./$ZAP_SCRIPT" init validnl --detail=$'line1\nline2' "rejects newline in variable value"
   
   # Test valid project names
   local output_file="$TEST_OUTPUT_DIR/valid-name.sh"

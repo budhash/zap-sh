@@ -178,6 +178,10 @@ cmd_init() {
         local value="${pair#*=}"
         # Validate key (letters, numbers, underscore only)
         [[ "$key" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]] || { u.error "invalid variable name: '$key' (must start with letter/underscore, contain only letters/numbers/underscore)"; exit $_E_USG; }
+        # Reject newlines in a value: the collected variables round-trip through a
+        # newline-delimited channel, so a newline would truncate the value or inject
+        # a bogus variable. Values are single-line by contract.
+        [[ "$value" == *$'\n'* ]] && { u.error "variable value must not contain a newline: '$key'"; exit $_E_USG; }
         # Add to user variables (case sensitive)
         user_variables+=("$key=$value")
         u.debug "user variable: $key=$value"
