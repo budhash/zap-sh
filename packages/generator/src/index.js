@@ -96,10 +96,21 @@ export function generate(opts = {}) {
   if (typeof project !== 'string' || !PROJECT_RE.test(project)) {
     throw new Error(`invalid project name: '${project}' (letters/numbers/hyphens/underscores only)`);
   }
+  // Reject newlines in user-provided values: bash collects variables through a
+  // newline-delimited channel and rejects them, so JS matches (a multi-line value
+  // would otherwise diverge). Computed values like license_content are unaffected.
+  const noNewline = (name, v) => {
+    if (v !== undefined && v !== null && String(v).includes('\n')) {
+      throw new Error(`variable value must not contain a newline: '${name}'`);
+    }
+  };
+  noNewline('year', year);
+  noNewline('license', license);
   for (const key of Object.keys(variables)) {
     if (!VARNAME_RE.test(key)) {
       throw new Error(`invalid variable name: '${key}' (must start with letter/underscore, contain only letters/numbers/underscore)`);
     }
+    noNewline(key, variables[key]);
   }
 
   const resolvedYear = String(year !== undefined && year !== null && year !== '' ? year : new Date().getFullYear());
