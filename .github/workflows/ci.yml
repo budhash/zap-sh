@@ -107,6 +107,9 @@ jobs:
       - name: Conformance (JS generator vs bash goldens)
         run: npm test
 
+      - name: Differential parity (JS vs live bash oracle)
+        run: npm run test:diff
+
       - name: Verify docs/ web bundle is committed fresh
         run: |
           npm run build:web

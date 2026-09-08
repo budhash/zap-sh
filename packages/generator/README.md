@@ -71,7 +71,10 @@ source of truth), so `src/templates.generated.js` and `dist/` are generated.
 npm install       # esbuild (only devDependency)
 npm run build     # bundle templates -> dist/index.mjs + dist/index.cjs
 npm test          # build, then conformance vs the shared golden files
+npm run test:diff # differential parity: run the live bash tool + JS and diff
 ```
 
-Parity is enforced in CI: the JS conformance runner and the bash conformance
-runner both check the same fixtures in `test/conformance/`.
+Parity is enforced in CI two ways: the JS and bash conformance runners both check
+the same fixtures in `test/conformance/`, and the differential test runs the
+live `zap-sh init` and the JS generator over a broad input matrix and compares
+byte-for-byte.
