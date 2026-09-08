@@ -389,7 +389,7 @@ _app_examples() {
 EOF
 }
 _app_env() { return 0; }
-_app_cleanup() { _u.debug "app cleanup"; }
+_app_cleanup() { u.debug "app cleanup"; }
 ##] functions
 ##) app
 ##( core

@@ -31,9 +31,10 @@ licenses, empty/whitespace values, overrides, and validation regexes.
    through a `printf`/`while read` channel, so a `\n` in a value truncates it or
    (if the tail looks like `k=v`) injects a bogus variable. JS preserves the
    value. Decide: reject newlines in values (both), or fix the round-trip.
-3. MEDIUM — `templates/enhanced.sh:397` calls `_u.debug` (should be `u.debug`);
-   generated enhanced scripts using a tempdir exit 127 + "command not found" on
-   exit. Template fix → regenerate enhanced goldens.
+3. ~~MEDIUM — `templates/enhanced.sh:397` calls `_u.debug`.~~ **DONE.** Fixed to
+   `u.debug` (verified `_app_cleanup` now exits 0, not 127); regenerated the 4
+   enhanced goldens + the browser bundle; added a template guard test
+   (`assert_not_contains "_u."`).
 4. MEDIUM — enhanced template writes `./<app>.log` unconditionally even with
    file-logging off (`enhanced.sh:521,527`); gate behind `__L_FS`.
 5. LOW/MED — `snip -s` section name flows unsanitized into grep/sed; validate

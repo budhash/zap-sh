@@ -125,6 +125,18 @@ teardown_tests() {
 ##) template helpers
 
 ##( tests
+test_no_undefined_util_namespace() {
+  _section_header "No undefined _u.* namespace"
+
+  local template_file="$ORIGINAL_PWD/$TEMPLATE_FILE"
+  # Every utility is u.*; a `_u.` reference is a typo (e.g. the old `_u.debug`
+  # in _app_cleanup) that exits generated scripts with 127 at cleanup.
+  local content; content=$(cat "$template_file")
+  assert_not_contains "$content" "_u." "template has no _u.* (undefined namespace) references"
+
+  echo
+}
+
 test_section_markers() {
   _section_header "Section Markers"
   
