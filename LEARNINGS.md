@@ -56,9 +56,13 @@ licenses, empty/whitespace values, overrides, and validation regexes.
    collectors depend on (removing it broke the bash32 suite); added a NOTE.
    `_E_OS` (use `_E_OS=4` for OS mismatch instead of `u.die`=1): still pending —
    cosmetic, touches both templates + goldens.
-- HARDENING — no checksum/signature on downloaded templates or the self-upgrade
-  binary; `ZAP_REMOTE` accepts `http://`. Consider SHA256 in `manifest.txt` and
-  refusing non-https remotes.
+- HARDENING (decided with user, keep it simple): **HTTPS-only DONE** —
+  `download_file` refuses a non-`https://` URL (covers templates, version,
+  manifest, and the self-upgrade binary that is mv'd over the script). **Checksums
+  /signatures SKIPPED** — TLS to the trusted GitHub remote already gives transport
+  integrity; a sums-file + cross-platform sha tooling was judged not worth the
+  complexity for this tool. **`_E_OS` SKIPPED** — cosmetic exit-code nit on a
+  near-never path that would churn both templates + goldens.
 
 Also: `release.yml` runs only Ubuntu (macOS commented out) and does not build/
 publish the JS package — both to address in the 1.1.0 trusted-release workflow.
