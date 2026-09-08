@@ -832,6 +832,10 @@ has_variable() {
 download_file() {
   local url="$1" output_file="$2"
   u.require curl
+  # Require HTTPS: downloads (templates, and the self-upgrade binary that is
+  # mv'd over this script) must not come over plaintext. Rely on TLS to the
+  # remote for transport integrity; refuse an http:// (or other) ZAP_REMOTE.
+  [[ "$url" == https://* ]] || { u.error "refusing non-HTTPS download URL: $url (set ZAP_REMOTE to an https:// URL)"; return $_E_USG; }
   # Connectivity probe is a hint only: some networks block ICMP (ping) but allow
   # HTTPS, so don't gate the download on it — rely on curl's actual result.
   u.online || u.debug "connectivity probe failed; attempting download anyway"

@@ -396,6 +396,9 @@ test_input_validation() {
 
   # Reject a newline inside a variable value (would corrupt the collection round-trip)
   assert_fail "./$ZAP_SCRIPT" init validnl --detail=$'line1\nline2' "rejects newline in variable value"
+
+  # Refuse a non-HTTPS remote (protects template/binary downloads)
+  assert_fail env ZAP_REMOTE=http://example.com/x "./$ZAP_SCRIPT" upgrade --templates-only "rejects non-HTTPS ZAP_REMOTE"
   
   # Test valid project names
   local output_file="$TEST_OUTPUT_DIR/valid-name.sh"
