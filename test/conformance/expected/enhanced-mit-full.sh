@@ -537,7 +537,10 @@ _boot() {
   u.debug " __APPDIR: ${__APPDIR}"
   u.debug " __APPFILE: ${__APPFILE}"
 
-  [[ "$__L_NEW" == true && -f "$__LOG" ]] && rm -f "$__LOG" || echo "-------- $(date) --------" >> "$__LOG"
+  if [[ "$__L_FS" == true ]]; then
+    [[ "$__L_NEW" == true && -f "$__LOG" ]] && rm -f "$__LOG"
+    echo "-------- $(date) --------" >> "$__LOG"
+  fi
   u.debug "checking - os requirement: current [$(u.os)]"
   printf '%s\n' "${__OS[@]}" | grep -Fxq "$(u.os)" || u.die "unsupported OS: $(u.os) [required: ${__OS[*]}]"
   u.debug "checking - framework dependencies"

@@ -36,8 +36,10 @@ licenses, empty/whitespace values, overrides, and validation regexes.
    `u.debug` (verified `_app_cleanup` now exits 0, not 127); regenerated the 4
    enhanced goldens + the browser bundle; added a template guard test
    (`assert_not_contains "_u."`).
-4. MEDIUM — enhanced template writes `./<app>.log` unconditionally even with
-   file-logging off (`enhanced.sh:521,527`); gate behind `__L_FS`.
+4. ~~MEDIUM — enhanced template writes `./<app>.log` even with file-logging
+   off.~~ **DONE.** Gated the boot-time log init behind `__L_FS` (verified: no
+   log file when off, log when on). Kept the path as-is (minimal). Regenerated
+   the 4 enhanced goldens + bundle.
 5. LOW/MED — `snip -s` section name flows unsanitized into grep/sed; validate
    against `_SECTIONS` / allowlist.
 6. LOW — `{{year}}` embedded in a value → clock year (bash) vs pinned year (JS);
