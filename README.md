@@ -9,6 +9,7 @@
 <div align="center">
 
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/budhash/zap-sh)
+[![npm](https://img.shields.io/npm/v/@budhash/zap-sh?logo=npm&label=%40budhash%2Fzap-sh)](https://www.npmjs.com/package/@budhash/zap-sh)
 [![CI](https://github.com/budhash/zap-sh/workflows/CI/badge.svg)](https://github.com/budhash/zap-sh/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Bash 3.2+](https://img.shields.io/badge/bash-3.2+-blue.svg)](https://www.gnu.org/software/bash/)
@@ -323,6 +324,10 @@ DEBUG=true zap-sh upgrade
 [`@budhash/zap-sh`](packages/generator), that produces the same script as the
 bash tool. It runs the [browser wizard](https://budhash.com/zap-sh/) and works in
 Node or the browser.
+
+```bash
+npm install @budhash/zap-sh
+```
 
 ```js
 import { generate } from '@budhash/zap-sh';
