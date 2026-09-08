@@ -25,7 +25,9 @@ A bash script template generator for creating maintainable shell scripts.
 > same generator as the CLI (see [JavaScript generator](#javascript-generator)),
 > whose output matches `zap-sh init` byte-for-byte.
 
-**Status**: Initial release. Core functionality is stable.
+**Status**: Stable (v1.1.0). Also available as a JavaScript package
+([`@budhash/zap-sh`](https://www.npmjs.com/package/@budhash/zap-sh)) and a
+[browser wizard](https://budhash.com/zap-sh/).
 
 ## Table of Contents
 
@@ -55,12 +57,14 @@ zap-sh generates bash scripts from templates, similar to how cookiecutter works 
 ### Key Features
 
 - Self-contained scripts with no runtime dependencies
-- Interactive setup wizard for new projects
+- Interactive CLI setup wizard for new projects
 - Built-in license templates (MIT, Apache, GPL)
 - Your code stays safe during framework updates
 - Cross-platform support (Bash 3.2+ for macOS compatibility)
 - Piped execution support with configurable restrictions
 - Automatic updates from GitHub
+- JavaScript generator + [browser wizard](https://budhash.com/zap-sh/) with
+  byte-for-byte parity ([`@budhash/zap-sh`](https://www.npmjs.com/package/@budhash/zap-sh))
 
 ## Quick Start
 
@@ -446,11 +450,12 @@ git tag v1.0.0
 git push origin main v1.0.0
 ```
 
-**What happens automatically**:
-- GitHub Actions runs full CI validation
-- Release archive (`zap-sh-1.0.0.zip`) is created from `manifest.txt`
-- GitHub Release is published with changelog from README
-- Release assets are uploaded and ready for download
+**What happens automatically** (on a `v*` tag):
+- GitHub Actions runs full CI validation (Ubuntu + macOS)
+- Release archive (`zap-sh-<version>.zip`) is created from `manifest.txt`
+- GitHub Release is published with the changelog from README
+- `@budhash/zap-sh` is published to npm via OIDC trusted publishing (with
+  provenance, no long-lived token) when the tag matches the package version
 
 **Development commands**:
 ```bash
