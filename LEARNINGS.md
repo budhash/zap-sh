@@ -40,8 +40,8 @@ licenses, empty/whitespace values, overrides, and validation regexes.
    off.~~ **DONE.** Gated the boot-time log init behind `__L_FS` (verified: no
    log file when off, log when on). Kept the path as-is (minimal). Regenerated
    the 4 enhanced goldens + bundle.
-5. LOW/MED — `snip -s` section name flows unsanitized into grep/sed; validate
-   against `_SECTIONS` / allowlist.
+5. ~~LOW/MED — `snip -s` section name flows unsanitized into grep/sed.~~ **DONE.**
+   Allowlist `^[a-zA-Z0-9_-]+$` in `cmd_snip` before the grep/sed use; tests added.
 6. LOW — `{{year}}` embedded in a value → clock year (bash) vs pinned year (JS);
    the only placeholder-in-value that diverges (SPEC §6). Align by having bash's
    default `year` respect an explicit `--year`.
@@ -49,8 +49,13 @@ licenses, empty/whitespace values, overrides, and validation regexes.
    (bash `$(cat)` strips them; today's licenses have none, so no-op now);
    `output_path` is in bash's substitution map but not JS (no placeholder uses
    it today). No-ops today, guard for future templates/licenses.
-8. LOW — `u.die` used for OS mismatch instead of `_E_OS`; ICMP-ping connectivity
-   gate blocks HTTPS-only networks; stray empty positional from `"${arr[@]:-}"`.
+8. Minors — **ICMP-ping gate DONE**: `download_file` no longer hard-fails on the
+   ping (some networks block ICMP but allow HTTPS); it's a debug hint now and the
+   download relies on curl's actual result. **Empty positional `"${arr[@]:-}"`:
+   left as-is on purpose** — it's the Bash 3.2 `set -u` workaround the downstream
+   collectors depend on (removing it broke the bash32 suite); added a NOTE.
+   `_E_OS` (use `_E_OS=4` for OS mismatch instead of `u.die`=1): still pending —
+   cosmetic, touches both templates + goldens.
 - HARDENING — no checksum/signature on downloaded templates or the self-upgrade
   binary; `ZAP_REMOTE` accepts `http://`. Consider SHA256 in `manifest.txt` and
   refusing non-https remotes.

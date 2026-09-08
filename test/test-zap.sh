@@ -378,7 +378,11 @@ test_section_extraction() {
   done
   
   assert_fail "./$ZAP_SCRIPT" snip -f nonexistent.sh "fails with nonexistent file"
-  
+
+  # Section name is interpolated into grep/sed; reject non-allowlisted values
+  assert_fail "./$ZAP_SCRIPT" snip -f "$basic_file" -s ".*" "rejects regex-metachar section name"
+  assert_fail "./$ZAP_SCRIPT" snip -f "$basic_file" -s "app;x" "rejects section name with punctuation"
+
   echo
 }
 
