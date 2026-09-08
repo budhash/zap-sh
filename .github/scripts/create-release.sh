@@ -223,7 +223,7 @@ EOF
             # Extract from pattern to the line before the next ## or ### at start of line, or to EOF
             awk -v pat="$pattern" '
                 $0 ~ pat { found=1 }
-                found && /^##[^#]/ && $0 !~ pat { exit }
+                found && /^###?[^#]/ && $0 !~ pat { exit }
                 found { print }
                 END { if (!found) exit 1 }
             ' "$source_file" > "$changelog_file"
