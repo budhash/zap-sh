@@ -215,6 +215,9 @@ cmd_init() {
   local collection_output
   local collection_exit_code=0
 
+  # NOTE: "${user_variables[@]:-}" intentionally yields a single empty argument
+  # when the array is empty — this is the Bash 3.2 set -u workaround, and the
+  # downstream collectors rely on it to avoid an unbound-array expansion.
   if [[ "$wizard" == true ]]; then
     collection_output=$(collect_wizard_variables "$template" "${user_variables[@]:-}")
     collection_exit_code=$?
@@ -267,6 +270,9 @@ cmd_snip() {
 
   [[ -n "$source_file" ]] || { u.error "source file required (-f)"; exit $_E_USG; }
   [[ -f "$source_file" ]] || { u.error "source file not found: $source_file"; exit $_E_NF; }
+  # Section name is interpolated into grep/sed patterns; allowlist it to prevent
+  # regex/command injection via crafted -s values.
+  [[ "$section" =~ ^[a-zA-Z0-9_-]+$ ]] || { u.error "invalid section name: '$section' (letters/numbers/hyphens/underscores only)"; exit $_E_USG; }
 
   u.debug "extracting section '$section' from $source_file"
 
@@ -826,8 +832,10 @@ has_variable() {
 download_file() {
   local url="$1" output_file="$2"
   u.require curl
-  u.online || { u.error "no internet connection"; return $_E_NC; }
-  u.kurl GET "$url" "" > "$output_file"
+  # Connectivity probe is a hint only: some networks block ICMP (ping) but allow
+  # HTTPS, so don't gate the download on it — rely on curl's actual result.
+  u.online || u.debug "connectivity probe failed; attempting download anyway"
+  u.kurl GET "$url" "" > "$output_file" || { u.error "download failed (check connection): $url"; return $_E_NC; }
 }
 
 templates_exist() {
