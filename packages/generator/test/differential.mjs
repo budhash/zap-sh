@@ -9,9 +9,10 @@
 // for npm consumers (this file is not in the published tarball).
 //
 // The matrix deliberately excludes inputs with KNOWN bash bugs (documented in
-// the repo LEARNINGS.md, queued for the 1.1.0 bash fixes): newlines in a value,
-// a value containing the literal `{{year}}` token, and self-referential values.
-// Add those here once the bash side is fixed.
+// the repo LEARNINGS.md, queued for the 1.1.0 bash fixes): newlines in a value
+// and a value containing the literal `{{year}}` token. Self-referential values
+// are now COVERED (the apply_variables single-pass fix aligns bash with JS and
+// stops the old infinite loop); a re-introduced hang trips the per-run timeout.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
@@ -48,6 +49,10 @@ const valueSets = [
   [['author', 'tab\tinside'], ['description', 'trailing space ']],
   [['app', 'OVERRIDE'], ['author', 'Z']],
   [['license_name', 'Custom Name'], ['author', 'Z']],
+  // self-referential values (would infinite-loop before the apply_variables fix)
+  [['detail', 'x {{detail}} y']],
+  [['author', '{{author}}!']],
+  [['description', 'wrap {{description}} around'], ['version', '{{version}}-dev']],
 ];
 
 test('differential parity: JS matches live bash `zap-sh init` byte-for-byte', () => {

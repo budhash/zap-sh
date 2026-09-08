@@ -960,9 +960,12 @@ apply_variables() {
       value="${assignment#*=}"
       local placeholder="{{$var}}"
 
-      while [[ "$result" == *"$placeholder"* ]]; do
-        result="${result//"$placeholder"/"$value"}"
-      done
+      # Single global pass per variable (matches SPEC 4.3 and the JS generator).
+      # A `while` loop here would spin forever when a value contains its own
+      # placeholder (e.g. --detail='x {{detail}} y'); ${//} already replaces all
+      # occurrences in one pass, and any placeholder re-introduced by a value is
+      # resolved only by a LATER variable, never re-scanned by this one.
+      result="${result//"$placeholder"/"$value"}"
       u.debug "applied variable: $var"
     fi
   done

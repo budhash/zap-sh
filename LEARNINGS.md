@@ -22,10 +22,11 @@ licenses, empty/whitespace values, overrides, and validation regexes.
   a different concept that stays `0.1.0`.
 
 **Fixes queued for 1.1.0** (ranked):
-1. HIGH — `apply_variables` (`zap-sh:963-964`) infinite-loops when a value
-   contains its own `{{placeholder}}` (e.g. `--detail='x {{detail}} y'`). Drop
-   the `while`; a single `${//}` pass suffices. JS is already single-pass, so
-   this *aligns* bash to JS. No conformance golden changes.
+1. ~~HIGH — `apply_variables` infinite-loops when a value contains its own
+   `{{placeholder}}`.~~ **DONE.** Replaced the `while` with a single `${//}` pass
+   (matches SPEC §4.3 and the JS generator). No golden changed; bash now equals
+   JS on self-referential values, which are now in the differential matrix
+   (288 combos).
 2. HIGH — newline in a variable value: `cmd_init` round-trips collected vars
    through a `printf`/`while read` channel, so a `\n` in a value truncates it or
    (if the tail looks like `k=v`) injects a bogus variable. JS preserves the
