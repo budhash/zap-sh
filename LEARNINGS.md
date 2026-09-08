@@ -64,8 +64,13 @@ licenses, empty/whitespace values, overrides, and validation regexes.
   complexity for this tool. **`_E_OS` SKIPPED** — cosmetic exit-code nit on a
   near-never path that would churn both templates + goldens.
 
-Also: `release.yml` runs only Ubuntu (macOS commented out) and does not build/
-publish the JS package — both to address in the 1.1.0 trusted-release workflow.
+Release infra (DONE): `release.yml` now runs Ubuntu **and** macOS again (bash32
+suite passes there). Added `.github/workflows/release-npm.yml` — on a `v*` tag it
+publishes `@budhash/zap-sh` via **npm OIDC trusted publishing** (`id-token: write`,
+`npm@latest`, no token, provenance automatic); it skips cleanly when the tag
+doesn't match `packages/generator/package.json`. Requires a one-time npm Trusted
+Publisher setup (Org budhash, Repo zap-sh, Workflow `release-npm.yml`, Env blank)
+BEFORE the first tagged publish.
 
 **Parity net (landed, release-independent):** the conformance suite is not a
 versioned deliverable — it is the ongoing gate, with its own `SPEC-VERSION`. It
