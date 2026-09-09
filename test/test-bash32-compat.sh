@@ -209,7 +209,8 @@ test_piped_execution_compatibility() {
     print_test "INFO" "Testing piped execution compatibility..."
     
     # Test that piped mode detection works in Bash 3.2
-    local test_script="${SCRIPT_DIR}/../test-piped-compat.sh"
+    local tmp; tmp=$(mktemp -d)
+    local test_script="$tmp/piped-compat.sh"
     cat > "$test_script" << 'EOF'
 #!/bin/bash
 # Test piped mode detection
@@ -246,16 +247,18 @@ EOF
     
     # Test that main zap-sh script works when piped
     local zap_output
-    zap_output=$(cat "${SCRIPT_DIR}/../zap-sh" | bash -s -- -v 2>&1 || true)
+    zap_output=$(cat "$PROJECT_ROOT/zap-sh" | bash -s -- -v 2>&1 || true)
     assert "zap-sh piped version command" "[[ '$zap_output' == '0.0.0' ]]"
-    
-    # Test generated script piped execution
-    local temp_project="pipe-test-$$"
-    "${SCRIPT_DIR}/../zap-sh" init "$temp_project" -t basic >/dev/null 2>&1
-    
-    if [[ -f "${temp_project}.sh" ]]; then
+
+    # Test generated script piped execution (dev mode uses the local templates/).
+    # Project name must be a bare token; -o directs output into the temp dir.
+    local gen_script="$tmp/pipe-test.sh"
+    assert "zap-sh creates project for piped test" \
+        'ZAP_DEV=true "$PROJECT_ROOT/zap-sh" init pipe-test -t basic -o "$gen_script" >/dev/null 2>&1'
+
+    if [[ -f "$gen_script" ]]; then
         # Add test code to generated script
-        cat >> "${temp_project}.sh" << 'EOF'
+        cat >> "$gen_script" << 'EOF'
 # Test code
 if [[ "$__PIPED" == true ]]; then
     echo "GENERATED_PIPED"
@@ -263,16 +266,16 @@ else
     echo "GENERATED_NORMAL"
 fi
 EOF
-        
-        output=$(cat "${temp_project}.sh" | bash 2>&1)
+
+        output=$(cat "$gen_script" | bash 2>&1)
         assert "generated script piped detection" "[[ '$output' == *'GENERATED_PIPED'* ]]"
-        
-        rm -f "${temp_project}.sh"
+    else
+        assert "generated script created for piped test" false
     fi
-    
+
     # Clean up
-    rm -f "$test_script"
-    
+    rm -rf "$tmp"
+
     echo
 }
 
@@ -280,7 +283,8 @@ test_tty_based_piped_detection() {
     print_test "INFO" "Testing TTY-based piped detection..."
     
     # Create test script with new detection
-    local test_script="${SCRIPT_DIR}/../test-tty-detection.sh"
+    local tmp; tmp=$(mktemp -d)
+    local test_script="$tmp/test-tty-detection.sh"
     cat > "$test_script" << 'EOF'
 #!/bin/bash
 readonly __SOURCE="${BASH_SOURCE[0]:-}"
@@ -307,10 +311,10 @@ EOF
     # Test input redirection (should also be detected as piped)
     output=$(bash < "$test_script" 2>&1)
     assert "input redirection detected as piped" "[[ '$output' == *'PIPED=true'* ]]"
-    
+
     # Clean up
-    rm -f "$test_script"
-    
+    rm -rf "$tmp"
+
     echo
 }
 ##) tests
@@ -326,7 +330,9 @@ main() {
     run_compatibility_tests
     test_zap_sh_compatibility
     test_template_compatibility
-    
+    test_piped_execution_compatibility
+    test_tty_based_piped_detection
+
     # Print summary
     echo "=============================================="
     echo "                 SUMMARY"
