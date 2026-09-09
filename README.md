@@ -8,7 +8,7 @@
 
 <div align="center">
 
-[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/budhash/zap-sh)
+[![Version](https://img.shields.io/badge/version-1.1.1-blue.svg)](https://github.com/budhash/zap-sh)
 [![npm](https://img.shields.io/npm/v/@budhash/zap-sh?logo=npm&label=%40budhash%2Fzap-sh)](https://www.npmjs.com/package/@budhash/zap-sh)
 [![CI](https://github.com/budhash/zap-sh/workflows/CI/badge.svg)](https://github.com/budhash/zap-sh/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -628,6 +628,11 @@ MIT License. See [LICENSE](LICENSE) file for details.
 Generated scripts inherit their license from the template used (configurable via `--license` option or wizard).
 
 ## Changelog
+
+### v1.1.1
+
+- `@budhash/zap-sh` now has **zero dependencies** — the build dropped esbuild for
+  a pure-Node bundler. No runtime or generated-output change.
 
 ### v1.1.0
 
