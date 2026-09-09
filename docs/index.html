@@ -4,16 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>zap-sh — generate self-contained bash scripts</title>
-<meta name="description" content="zap-sh scaffolds self-contained, maintainable bash scripts from templates. Docs, install, and a live in-browser generator (wizard) that produces the exact script zap-sh init would.">
-<meta name="keywords" content="bash script generator, shell script template, scaffold bash, bash boilerplate, zap-sh, cli generator, bash starter, devops">
+<meta name="description" content="zap-sh scaffolds self-contained, maintainable bash scripts from templates. Ships as a bash script and a zero-dependency JavaScript package (@budhash/zap-sh) with a live in-browser wizard.">
+<meta name="keywords" content="bash script generator, shell script template, scaffold bash, bash boilerplate, zap-sh, cli generator, npm, javascript, devops">
 <link rel="canonical" href="https://budhash.com/zap-sh/">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://budhash.com/zap-sh/">
 <meta property="og:title" content="zap-sh — generate self-contained bash scripts">
-<meta property="og:description" content="Scaffold self-contained, maintainable bash scripts from templates. Docs + a live in-browser generator.">
+<meta property="og:description" content="Scaffold self-contained, maintainable bash scripts from templates. A bash script and a zero-dependency JavaScript package, plus a live wizard.">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="zap-sh — generate self-contained bash scripts">
-<meta name="twitter:description" content="Scaffold self-contained, maintainable bash scripts from templates. Live in-browser generator.">
+<meta name="twitter:description" content="Scaffold self-contained, maintainable bash scripts from templates. Live in-browser wizard.">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -43,63 +43,70 @@
   .section-head .label { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--paper-dim); white-space: nowrap; }
   .section-head::after { content: ""; flex: 1 1 auto; height: 1px; background: var(--rule); }
 
-  /* ── the tool ───────────────────────────────────────────────────────── */
-  .doc-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; align-items: start; }
-  .card { background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; box-shadow: var(--elev); padding: 20px 22px; }
-  .card > .label { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--paper-dimmer); display: block; }
-  .card > .label + .label { margin-top: 18px; }
-  .card p { margin: 0 0 10px; color: var(--paper-dim); font-size: 14px; line-height: 1.6; }
-  .card p code, .inline-code { font-family: var(--mono); font-size: 12.5px; background: var(--chip); padding: 1px 5px; border-radius: 4px; color: var(--paper); }
-  pre.code { margin: 8px 0 0; background: var(--well); border: 1px solid var(--rule); border-radius: 8px; padding: 11px 13px; overflow-x: auto; font-family: var(--mono); font-size: 12.5px; line-height: 1.55; color: var(--paper); white-space: pre; }
-  pre.code .c { color: var(--paper-dimmer); }
-  .vars { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
-  .vars td { padding: 5px 8px; border-top: 1px solid var(--rule); vertical-align: top; color: var(--paper-dim); }
-  .vars tr:first-child td { border-top: 0; }
-  .vars td:first-child { font-family: var(--mono); color: var(--paper); white-space: nowrap; }
+  /* ── live wizard ────────────────────────────────────────────────────── */
+  .grid { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 16px; align-items: start; }
+  .col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .lbl { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; column-gap: 10px; min-height: 26px; }
+  .lbl .label { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--paper-dimmer); }
+  .lbl .fname { font-family: var(--mono); font-size: 12.5px; color: var(--paper); background: var(--chip); border: 1px solid var(--rule); border-radius: 6px; padding: 3px 9px; }
+  .lbl .hint { font-family: var(--mono); font-size: 10.5px; color: var(--paper-dimmer); }
+  .col-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 2px; }
+  .col-actions .toast { font-family: var(--mono); font-size: 11px; color: var(--green); }
 
-  /* ── wizard ─────────────────────────────────────────────────────────── */
-  .wiz { display: grid; grid-template-columns: minmax(320px, 0.85fr) 1.15fr; gap: 18px; align-items: start; }
-  .form { background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; box-shadow: var(--elev); padding: 18px 20px; display: flex; flex-direction: column; gap: 16px; }
-  .group { display: flex; flex-direction: column; gap: 10px; }
+  .panel { background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; box-shadow: var(--elev); min-width: 0; }
+  button { font: inherit; font-size: 13px; cursor: pointer; color: var(--paper); background: var(--chip); border: 1px solid var(--rule-hi); border-radius: 8px; padding: 6px 13px; transition: background .12s, border-color .12s; }
+  button:hover { background: var(--hover); border-color: var(--accent); }
+
+  /* form */
+  .form { padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
+  .group { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
   .group > .glabel { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--paper-dimmer); display: flex; align-items: center; gap: 10px; }
   .group > .glabel::after { content: ""; flex: 1 1 auto; height: 1px; background: var(--rule); }
-  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
   .field label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--paper-dimmer); }
-  .field input { width: 100%; background: var(--ink-2); color: var(--paper); border: 1px solid var(--rule-hi); border-radius: 7px; padding: 8px 10px; font: inherit; font-size: 13px; }
+  .field input { width: 100%; min-width: 0; background: var(--ink-2); color: var(--paper); border: 1px solid var(--rule-hi); border-radius: 7px; padding: 8px 10px; font: inherit; font-size: 13px; }
   .field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(110,168,254,0.16); }
   .field input.invalid { border-color: var(--red); }
   .field .err { font-family: var(--mono); font-size: 10.5px; color: var(--red); min-height: 0; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
   .seg { display: inline-flex; border: 1px solid var(--rule-hi); border-radius: 8px; overflow: hidden; flex-wrap: wrap; }
-  .seg button { font: inherit; font-size: 12.5px; cursor: pointer; color: var(--paper); background: transparent; border: 0; padding: 7px 14px; transition: background .12s; }
-  .seg button:hover { background: var(--hover); }
+  .seg button { border: 0; border-radius: 0; background: transparent; }
   .seg button.on { background: var(--accent); color: #08090c; }
 
-  button { font: inherit; font-size: 13px; cursor: pointer; color: var(--paper); background: var(--chip); border: 1px solid var(--rule-hi); border-radius: 8px; padding: 6px 13px; transition: background .12s, border-color .12s; }
-  button:hover { background: var(--hover); border-color: var(--accent); }
-  button.primary { background: var(--accent); color: #08090c; border-color: transparent; font-weight: 600; }
-  button.primary:hover { background: #8ab9ff; }
-
-  .preview { display: flex; flex-direction: column; gap: 10px; }
-  .preview .bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .preview .fname { font-family: var(--mono); font-size: 12.5px; color: var(--paper); background: var(--chip); border: 1px solid var(--rule); border-radius: 6px; padding: 4px 9px; }
-  .preview .spacer { margin-left: auto; }
-  .preview .toast { font-family: var(--mono); font-size: 11px; color: var(--green); opacity: 0; transition: opacity .2s; }
-  .preview .toast.show { opacity: 1; }
-  pre.out { margin: 0; background: var(--well); border: 1px solid var(--rule); border-radius: 12px; box-shadow: var(--elev); padding: 14px 16px; overflow: auto; max-height: 66vh; min-height: 380px; font-family: var(--mono); font-size: 12.5px; line-height: 1.5; color: var(--paper); white-space: pre; }
+  pre.out { margin: 0; padding: 14px 16px; background: var(--well); overflow: auto; white-space: pre; max-height: 62vh; min-height: 360px; font-family: var(--mono); font-size: 12.5px; line-height: 1.5; color: var(--paper); }
   pre.out.error { color: var(--amber); white-space: pre-wrap; }
+  pre.out:empty::before { content: "…"; color: var(--paper-dimmer); }
 
-  .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
-  .toolbar .hint { font-family: var(--mono); font-size: 11px; color: var(--paper-dimmer); }
-  .toolbar .spacer { margin-left: auto; }
+  /* ── tool details ───────────────────────────────────────────────────── */
+  .doc-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; align-items: start; }
+  .card { background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; box-shadow: var(--elev); padding: 20px 22px; min-width: 0; }
+  .card > .label { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--paper-dimmer); display: block; }
+  .card > .label + .label { margin-top: 18px; }
+  .card p { margin: 0 0 10px; color: var(--paper-dim); font-size: 14px; line-height: 1.6; }
+  .card p code, .inline-code { font-family: var(--mono); font-size: 12.5px; background: var(--chip); padding: 1px 5px; border-radius: 4px; color: var(--paper); }
+  pre.code { margin: 8px 0 0; max-width: 100%; background: var(--well); border: 1px solid var(--rule); border-radius: 8px; padding: 11px 13px; overflow-x: auto; font-family: var(--mono); font-size: 12.5px; line-height: 1.55; color: var(--paper); white-space: pre; }
+  pre.code .c { color: var(--paper-dimmer); }
+  .vars { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+  .vars td { padding: 5px 8px; border-top: 1px solid var(--rule); vertical-align: top; color: var(--paper-dim); }
+  .vars tr:first-child td { border-top: 0; }
+  .vars td:first-child { font-family: var(--mono); color: var(--paper); white-space: nowrap; }
 
   footer { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--rule); font-size: 12.5px; color: var(--paper-dimmer); }
   footer a { color: var(--paper-dim); }
 
-  @media (max-width: 900px) {
-    .doc-grid, .wiz { grid-template-columns: 1fr; }
-    pre.out { max-height: none; }
+  @media (max-width: 820px) {
+    .grid, .doc-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) {
+    .card { padding: 16px 16px; }
+    .form { padding: 14px 14px; }
+    pre.code, pre.out { font-size: 12px; }
+    .two { grid-template-columns: 1fr; }
+    header { padding-right: 0; }
+    .top-links { position: static; display: flex; justify-content: flex-end; margin-bottom: 16px; }
+    .eyebrow { letter-spacing: 0.12em; }
+    .eyebrow::before { display: none; }
   }
 </style>
 </head>
@@ -112,13 +119,87 @@
         <svg viewBox="0 0 16 16" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8Z"></path></svg>
       </a>
     </div>
-    <div class="eyebrow">bash script generator · runs anywhere</div>
+    <div class="eyebrow">bash script generator · bash + javascript · runs anywhere</div>
     <h1>zap-sh</h1>
-    <p class="subtitle">Scaffold self-contained, maintainable bash scripts from templates — strict mode, structured logging, cross-platform helpers, and a protected section for your own code that survives framework updates.</p>
+    <p class="subtitle">Scaffold self-contained, maintainable bash scripts from templates — strict mode, structured logging, cross-platform helpers, and a protected section for your own code that survives framework updates. Ships as a bash script <em>and</em> a zero-dependency JavaScript package (<span class="inline-code">@budhash/zap-sh</span>), kept identical by a shared spec.</p>
   </header>
 
-  <!-- ── Part 1: the tool ────────────────────────────────────────────── -->
-  <div class="section-head"><span class="label">the tool</span></div>
+  <!-- ── Part 1: live wizard ─────────────────────────────────────────── -->
+  <div class="section-head"><span class="label">live</span></div>
+  <p class="subtitle" style="margin:0 0 18px">Runs the zap-sh generator client-side — a JavaScript port of the bash tool, verified byte-for-byte against its output. Fill in the fields; the script updates live. Nothing is sent anywhere.</p>
+
+  <div class="grid">
+    <form class="col" id="form" autocomplete="off">
+      <div class="lbl"><span class="label">options</span><span class="hint">fill in; the script updates live</span></div>
+      <div class="form panel">
+        <div class="group">
+          <div class="glabel">template</div>
+          <div class="seg" role="group" aria-label="template" id="templateSeg">
+            <button type="button" data-val="basic" class="on">basic</button>
+            <button type="button" data-val="enhanced">enhanced</button>
+          </div>
+        </div>
+
+        <div class="group">
+          <div class="glabel">project</div>
+          <div class="field">
+            <label for="project">name</label>
+            <input id="project" value="my-tool" spellcheck="false" placeholder="my-tool">
+            <span class="err" id="projectErr"></span>
+          </div>
+          <div class="field">
+            <label for="detail">brief</label>
+            <input id="detail" spellcheck="false" placeholder="Generated by zap-sh">
+          </div>
+          <div class="field">
+            <label for="description">description</label>
+            <input id="description" spellcheck="false" placeholder="Generated by zap-sh template">
+          </div>
+          <div class="two">
+            <div class="field">
+              <label for="author">author</label>
+              <input id="author" spellcheck="false" placeholder="anonymous">
+            </div>
+            <div class="field">
+              <label for="email">email</label>
+              <input id="email" spellcheck="false" placeholder="(optional)">
+            </div>
+          </div>
+          <div class="field">
+            <label for="version">version</label>
+            <input id="version" spellcheck="false" placeholder="0.1.0">
+          </div>
+        </div>
+
+        <div class="group">
+          <div class="glabel">license</div>
+          <div class="seg" role="group" aria-label="license" id="licenseSeg">
+            <button type="button" data-val="" class="on">none</button>
+            <button type="button" data-val="mit">mit</button>
+            <button type="button" data-val="apache">apache</button>
+            <button type="button" data-val="gpl">gpl</button>
+          </div>
+        </div>
+      </div>
+      <div class="col-actions">
+        <button type="button" id="sample">sample</button>
+        <button type="button" id="reset">reset</button>
+      </div>
+    </form>
+
+    <div class="col">
+      <div class="lbl"><span class="fname" id="fname">my-tool.sh</span><span class="hint">generated script</span></div>
+      <pre class="out panel" id="out" aria-live="polite"></pre>
+      <div class="col-actions">
+        <button type="button" id="copy">copy</button>
+        <button type="button" id="save">save</button>
+        <span class="toast" id="toast" hidden></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Part 2: the tool ────────────────────────────────────────────── -->
+  <div class="section-head"><span class="label">tool</span></div>
   <div class="doc-grid">
     <div class="card">
       <span class="label">what it is</span>
@@ -148,82 +229,20 @@ zap-sh init deploy -t enhanced \
         <tr><td>--version</td><td>script version (default 0.1.0)</td></tr>
         <tr><td>--license</td><td>mit · apache · gpl</td></tr>
       </table>
-      <p style="margin-top:14px">Full docs in the <a href="https://github.com/budhash/zap-sh" rel="noopener">README</a>.</p>
     </div>
   </div>
 
-  <!-- ── Part 2: the wizard ──────────────────────────────────────────── -->
-  <div class="section-head"><span class="label">wizard</span></div>
-  <p class="subtitle" style="margin:0 0 18px">Runs the zap-sh generator in your browser — a JavaScript port of the bash tool, verified byte-for-byte against its output. Fill in the fields; the script updates live. Nothing is sent anywhere.</p>
-
-  <div class="toolbar">
-    <button type="button" id="sample">try a sample</button>
-    <button type="button" id="reset">reset</button>
-    <span class="hint">everything runs client-side</span>
-  </div>
-
-  <div class="wiz">
-    <form class="form" id="form" autocomplete="off">
-      <div class="group">
-        <div class="glabel">template</div>
-        <div class="seg" role="group" aria-label="template" id="templateSeg">
-          <button type="button" data-val="basic" class="on">basic</button>
-          <button type="button" data-val="enhanced">enhanced</button>
-        </div>
-      </div>
-
-      <div class="group">
-        <div class="glabel">project</div>
-        <div class="field">
-          <label for="project">name</label>
-          <input id="project" value="my-tool" spellcheck="false" placeholder="my-tool">
-          <span class="err" id="projectErr"></span>
-        </div>
-        <div class="field">
-          <label for="detail">brief</label>
-          <input id="detail" spellcheck="false" placeholder="Generated by zap-sh">
-        </div>
-        <div class="field">
-          <label for="description">description</label>
-          <input id="description" spellcheck="false" placeholder="Generated by zap-sh template">
-        </div>
-        <div class="two">
-          <div class="field">
-            <label for="author">author</label>
-            <input id="author" spellcheck="false" placeholder="anonymous">
-          </div>
-          <div class="field">
-            <label for="email">email</label>
-            <input id="email" spellcheck="false" placeholder="(optional)">
-          </div>
-        </div>
-        <div class="field">
-          <label for="version">version</label>
-          <input id="version" spellcheck="false" placeholder="0.1.0">
-        </div>
-      </div>
-
-      <div class="group">
-        <div class="glabel">license</div>
-        <div class="seg" role="group" aria-label="license" id="licenseSeg">
-          <button type="button" data-val="" class="on">none</button>
-          <button type="button" data-val="mit">mit</button>
-          <button type="button" data-val="apache">apache</button>
-          <button type="button" data-val="gpl">gpl</button>
-        </div>
-      </div>
-    </form>
-
-    <div class="preview">
-      <div class="bar">
-        <span class="fname" id="fname">my-tool.sh</span>
-        <span class="spacer"></span>
-        <span class="toast" id="toast">copied</span>
-        <button type="button" id="copy">copy</button>
-        <button type="button" class="primary" id="download">download</button>
-      </div>
-      <pre class="out" id="out" aria-live="polite"></pre>
-    </div>
+  <div class="card" style="margin-top:18px">
+    <span class="label">javascript — @budhash/zap-sh</span>
+    <p>The same generator as a zero-dependency npm package (Node and the browser) — it produces the exact script <span class="inline-code">zap-sh init</span> writes, byte-for-byte, tracked by a shared spec and conformance suite. It powers the wizard above.</p>
+    <pre class="code">npm i @budhash/zap-sh</pre>
+    <pre class="code"><span class="c">// generation only: template -> { filename, content }</span>
+import { generate } from "@budhash/zap-sh";
+const { filename, content } = generate({
+  template: "enhanced", project: "my-tool", license: "mit",
+  variables: { author: "Jane Doe", version: "1.2.0" },
+});</pre>
+    <p style="margin:10px 0 0">CommonJS and TypeScript types are included. Full docs in the <a href="https://github.com/budhash/zap-sh" rel="noopener">README</a>.</p>
   </div>
 
   <footer>
@@ -252,6 +271,17 @@ zap-sh init deploy -t enhanced \
     return vars;
   }
 
+  function currentContent() {
+    const project = projectInput.value.trim();
+    return generate({
+      template: state.template,
+      project,
+      variables: collectVariables(),
+      license: state.license || undefined,
+      year: YEAR,
+    }).content;
+  }
+
   function render() {
     const project = projectInput.value.trim();
     const valid = /^[a-zA-Z0-9_-]+$/.test(project);
@@ -265,14 +295,10 @@ zap-sh init deploy -t enhanced \
       fname.textContent = '—';
       return;
     }
-
     try {
       const { filename, content } = generate({
-        template: state.template,
-        project,
-        variables: collectVariables(),
-        license: state.license || undefined,
-        year: YEAR,
+        template: state.template, project, variables: collectVariables(),
+        license: state.license || undefined, year: YEAR,
       });
       out.classList.remove('error');
       out.textContent = content;
@@ -296,31 +322,53 @@ zap-sh init deploy -t enhanced \
   }
   wireSeg('templateSeg', 'template');
   wireSeg('licenseSeg', 'license');
-
   for (const id of fields) $(id).addEventListener('input', render);
 
-  // Copy / download
+  // toast + copy/save
   const toast = $('toast');
-  function flash(msg) { toast.textContent = msg; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 1200); }
+  let toastTimer;
+  function flash(msg) {
+    toast.textContent = msg; toast.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toast.hidden = true; }, 1400);
+  }
 
+  async function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(text); return; }
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+  }
   $('copy').addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(out.textContent); flash('copied'); }
-    catch { flash('copy failed'); }
+    if (!/^[a-zA-Z0-9_-]+$/.test(projectInput.value.trim())) { flash('fix the name first'); return; }
+    try { await copyText(currentContent()); flash('copied'); } catch { flash('press ⌘C'); }
   });
 
-  $('download').addEventListener('click', () => {
-    const project = projectInput.value.trim();
-    if (!/^[a-zA-Z0-9_-]+$/.test(project)) { flash('fix name first'); return; }
-    const blob = new Blob([out.textContent], { type: 'text/x-shellscript' });
+  async function saveText(text, suggestedName) {
+    if (window.showSaveFilePicker && window.isSecureContext) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName,
+          types: [{ description: 'Shell script', accept: { 'text/x-shellscript': ['.sh'] } }],
+        });
+        const w = await handle.createWritable(); await w.write(text); await w.close();
+        return true;
+      } catch (e) { if (e && e.name === 'AbortError') return false; }
+    }
+    const blob = new Blob([text], { type: 'text/x-shellscript' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = fname.textContent;
+    a.href = url; a.download = suggestedName;
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
-    flash('downloaded');
+    return true;
+  }
+  $('save').addEventListener('click', async () => {
+    if (!/^[a-zA-Z0-9_-]+$/.test(projectInput.value.trim())) { flash('fix the name first'); return; }
+    if (await saveText(currentContent(), fname.textContent)) flash('saved');
   });
 
-  // Sample / reset
+  // sample / reset
   function setSeg(segId, key, val) {
     state[key] = val;
     for (const b of $(segId).querySelectorAll('button')) b.classList.toggle('on', b.dataset.val === val);
