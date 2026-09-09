@@ -43,11 +43,9 @@
   .section-head .label { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--paper-dim); white-space: nowrap; }
   .section-head::after { content: ""; flex: 1 1 auto; height: 1px; background: var(--rule); }
 
-  /* ── live wizard ────────────────────────────────────────────────────── */
-  .grid { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 16px; align-items: start; }
-  .col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  /* ── live wizard: compact options panel on top, full-width preview below ─ */
+  .wiz { display: flex; flex-direction: column; gap: 16px; }
   .lbl { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; column-gap: 10px; min-height: 26px; }
-  .lbl .label { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--paper-dimmer); }
   .lbl .fname { font-family: var(--mono); font-size: 12.5px; color: var(--paper); background: var(--chip); border: 1px solid var(--rule); border-radius: 6px; padding: 3px 9px; }
   .lbl .hint { font-family: var(--mono); font-size: 10.5px; color: var(--paper-dimmer); }
   .col-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 2px; }
@@ -57,26 +55,37 @@
   button { font: inherit; font-size: 13px; cursor: pointer; color: var(--paper); background: var(--chip); border: 1px solid var(--rule-hi); border-radius: 8px; padding: 6px 13px; transition: background .12s, border-color .12s; }
   button:hover { background: var(--hover); border-color: var(--accent); }
 
-  /* form */
-  .form { padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
-  .group { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
-  .group > .glabel { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--paper-dimmer); display: flex; align-items: center; gap: 10px; }
-  .group > .glabel::after { content: ""; flex: 1 1 auto; height: 1px; background: var(--rule); }
-  .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+  /* form: a compact horizontal panel of fields */
+  .form { padding: 16px 18px; }
+  .form-head { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+  .form-head .label { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--paper-dimmer); }
+  .form-head .hint { font-family: var(--mono); font-size: 10.5px; color: var(--paper-dimmer); }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 13px 16px; align-items: end; }
+  .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .field.wide { grid-column: span 2; }
   .field label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--paper-dimmer); }
   .field input { width: 100%; min-width: 0; background: var(--ink-2); color: var(--paper); border: 1px solid var(--rule-hi); border-radius: 7px; padding: 8px 10px; font: inherit; font-size: 13px; }
   .field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(110,168,254,0.16); }
   .field input.invalid { border-color: var(--red); }
-  .field .err { font-family: var(--mono); font-size: 10.5px; color: var(--red); min-height: 0; }
-  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .field .err { font-family: var(--mono); font-size: 10.5px; color: var(--red); }
+  .form-actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
 
-  .seg { display: inline-flex; border: 1px solid var(--rule-hi); border-radius: 8px; overflow: hidden; flex-wrap: wrap; }
-  .seg button { border: 0; border-radius: 0; background: transparent; }
+  /* segmented control — equal-width segments filling the field */
+  .seg { display: flex; width: 100%; border: 1px solid var(--rule-hi); border-radius: 7px; overflow: hidden; }
+  .seg button { flex: 1 1 0; min-width: 0; border: 0; border-radius: 0; background: transparent; text-align: center; white-space: nowrap; padding: 8px 6px; }
+  .seg button + button { border-left: 1px solid var(--rule-hi); }
   .seg button.on { background: var(--accent); color: #08090c; }
 
-  pre.out { margin: 0; padding: 14px 16px; background: var(--well); overflow: auto; white-space: pre; max-height: 62vh; min-height: 360px; font-family: var(--mono); font-size: 12.5px; line-height: 1.5; color: var(--paper); }
+  .preview { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  pre.out { margin: 0; padding: 14px 16px; background: var(--well); overflow: auto; white-space: pre; max-height: 70vh; min-height: 320px; font-family: var(--mono); font-size: 12.5px; line-height: 1.5; color: var(--paper); }
   pre.out.error { color: var(--amber); white-space: pre-wrap; }
   pre.out:empty::before { content: "…"; color: var(--paper-dimmer); }
+  /* shell syntax highlighting (self-contained, no external library) */
+  .out .hl-c { color: var(--paper-dimmer); }
+  .out .hl-s { color: var(--green); }
+  .out .hl-v { color: var(--accent); }
+  .out .hl-k { color: var(--accent-2); }
+  .out .hl-b { color: var(--amber); }
 
   /* ── tool details ───────────────────────────────────────────────────── */
   .doc-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; align-items: start; }
@@ -128,51 +137,22 @@
   <div class="section-head"><span class="label">live</span></div>
   <p class="subtitle" style="margin:0 0 18px">Runs the zap-sh generator client-side — a JavaScript port of the bash tool, verified byte-for-byte against its output. Fill in the fields; the script updates live. Nothing is sent anywhere.</p>
 
-  <div class="grid">
-    <form class="col" id="form" autocomplete="off">
-      <div class="lbl"><span class="label">options</span><span class="hint">fill in; the script updates live</span></div>
-      <div class="form panel">
-        <div class="group">
-          <div class="glabel">template</div>
+  <div class="wiz">
+    <form class="form panel" id="form" autocomplete="off">
+      <div class="form-head">
+        <span class="label">options</span>
+        <span class="hint">fill in; the script updates live</span>
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label>template</label>
           <div class="seg" role="group" aria-label="template" id="templateSeg">
             <button type="button" data-val="basic" class="on">basic</button>
             <button type="button" data-val="enhanced">enhanced</button>
           </div>
         </div>
-
-        <div class="group">
-          <div class="glabel">project</div>
-          <div class="field">
-            <label for="project">name</label>
-            <input id="project" value="my-tool" spellcheck="false" placeholder="my-tool">
-            <span class="err" id="projectErr"></span>
-          </div>
-          <div class="field">
-            <label for="detail">brief</label>
-            <input id="detail" spellcheck="false" placeholder="Generated by zap-sh">
-          </div>
-          <div class="field">
-            <label for="description">description</label>
-            <input id="description" spellcheck="false" placeholder="Generated by zap-sh template">
-          </div>
-          <div class="two">
-            <div class="field">
-              <label for="author">author</label>
-              <input id="author" spellcheck="false" placeholder="anonymous">
-            </div>
-            <div class="field">
-              <label for="email">email</label>
-              <input id="email" spellcheck="false" placeholder="(optional)">
-            </div>
-          </div>
-          <div class="field">
-            <label for="version">version</label>
-            <input id="version" spellcheck="false" placeholder="0.1.0">
-          </div>
-        </div>
-
-        <div class="group">
-          <div class="glabel">license</div>
+        <div class="field wide">
+          <label>license</label>
           <div class="seg" role="group" aria-label="license" id="licenseSeg">
             <button type="button" data-val="" class="on">none</button>
             <button type="button" data-val="mit">mit</button>
@@ -180,14 +160,39 @@
             <button type="button" data-val="gpl">gpl</button>
           </div>
         </div>
+        <div class="field">
+          <label for="project">name</label>
+          <input id="project" value="my-tool" spellcheck="false" placeholder="my-tool">
+          <span class="err" id="projectErr"></span>
+        </div>
+        <div class="field">
+          <label for="version">version</label>
+          <input id="version" spellcheck="false" placeholder="0.1.0">
+        </div>
+        <div class="field">
+          <label for="author">author</label>
+          <input id="author" spellcheck="false" placeholder="anonymous">
+        </div>
+        <div class="field">
+          <label for="email">email</label>
+          <input id="email" spellcheck="false" placeholder="(optional)">
+        </div>
+        <div class="field wide">
+          <label for="detail">brief</label>
+          <input id="detail" spellcheck="false" placeholder="Generated by zap-sh">
+        </div>
+        <div class="field wide">
+          <label for="description">description</label>
+          <input id="description" spellcheck="false" placeholder="Generated by zap-sh template">
+        </div>
       </div>
-      <div class="col-actions">
+      <div class="form-actions">
         <button type="button" id="sample">sample</button>
         <button type="button" id="reset">reset</button>
       </div>
     </form>
 
-    <div class="col">
+    <div class="preview">
       <div class="lbl"><span class="fname" id="fname">my-tool.sh</span><span class="hint">generated script</span></div>
       <pre class="out panel" id="out" aria-live="polite"></pre>
       <div class="col-actions">
@@ -271,6 +276,48 @@ const { filename, content } = generate({
     return vars;
   }
 
+  // Lightweight, self-contained shell highlighter (no external library). Walks
+  // each line once, escaping every emitted piece; classifies comments, strings,
+  // $-expansions, and a small keyword/builtin set.
+  const HL_KW = new Set(['if','then','else','elif','fi','for','while','until','do','done','case','esac','in','function','select','return','exit','break','continue']);
+  const HL_BUILTIN = new Set(['local','readonly','declare','export','set','unset','shift','trap','eval','source','echo','printf','read','cd','exec']);
+  const hlEsc = (s) => s.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  function shellHighlight(src) {
+    const rows = [];
+    for (const line of src.split('\n')) {
+      if (/^\s*#/.test(line)) { rows.push('<span class="hl-c">' + hlEsc(line) + '</span>'); continue; }
+      let res = '', i = 0; const n = line.length;
+      while (i < n) {
+        const ch = line[i];
+        if (ch === '#') { res += '<span class="hl-c">' + hlEsc(line.slice(i)) + '</span>'; i = n; break; }
+        if (ch === '"' || ch === "'") {
+          const q = ch; let j = i + 1;
+          while (j < n && line[j] !== q) { if (q === '"' && line[j] === '\\') j++; j++; }
+          j = Math.min(j + 1, n);
+          res += '<span class="hl-s">' + hlEsc(line.slice(i, j)) + '</span>'; i = j; continue;
+        }
+        if (ch === '$') {
+          let j = i + 1;
+          if (line[j] === '{') { while (j < n && line[j] !== '}') j++; j = Math.min(j + 1, n); }
+          else if (line[j] === '(') { let d = 1; j++; while (j < n && d > 0) { if (line[j] === '(') d++; else if (line[j] === ')') d--; j++; } }
+          else { while (j < n && /[A-Za-z0-9_]/.test(line[j])) j++; }
+          res += '<span class="hl-v">' + hlEsc(line.slice(i, j)) + '</span>'; i = j; continue;
+        }
+        if (/[A-Za-z_]/.test(ch)) {
+          let j = i; while (j < n && /[A-Za-z0-9_]/.test(line[j])) j++;
+          const w = line.slice(i, j);
+          if (HL_KW.has(w)) res += '<span class="hl-k">' + w + '</span>';
+          else if (HL_BUILTIN.has(w)) res += '<span class="hl-b">' + w + '</span>';
+          else res += hlEsc(w);
+          i = j; continue;
+        }
+        res += hlEsc(ch); i++;
+      }
+      rows.push(res);
+    }
+    return rows.join('\n');
+  }
+
   function currentContent() {
     const project = projectInput.value.trim();
     return generate({
@@ -301,7 +348,7 @@ const { filename, content } = generate({
         license: state.license || undefined, year: YEAR,
       });
       out.classList.remove('error');
-      out.textContent = content;
+      out.innerHTML = shellHighlight(content);
       fname.textContent = filename;
     } catch (err) {
       out.classList.add('error');
