@@ -112,6 +112,6 @@ jobs:
 
       - name: Verify docs/ web bundle is committed fresh
         run: |
-          npm run build:web
+          npm run build
           git diff --exit-code -- ../../docs/zap-sh.js \
-            || { echo "::error::docs/zap-sh.js is stale — run 'npm run build:web' in packages/generator and commit the result"; exit 1; }
+            || { echo "::error::docs/zap-sh.js is stale — run 'npm run build' in packages/generator and commit the result"; exit 1; }
