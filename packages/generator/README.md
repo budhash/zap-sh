@@ -68,11 +68,12 @@ The templates are bundled from the repo's `templates/` at build time (the single
 source of truth), so `src/templates.generated.js` and `dist/` are generated.
 
 ```bash
-npm install       # esbuild (only devDependency)
-npm run build     # bundle templates -> dist/index.mjs + dist/index.cjs
+npm run build     # bundle templates + emit dist/index.mjs + dist/index.cjs (pure Node, no deps)
 npm test          # build, then conformance vs the shared golden files
 npm run test:diff # differential parity: run the live bash tool + JS and diff
 ```
+
+The package has **zero dependencies** — the build is plain Node (no bundler).
 
 Parity is enforced in CI two ways: the JS and bash conformance runners both check
 the same fixtures in `test/conformance/`, and the differential test runs the

@@ -2,6 +2,22 @@
 
 Insights, gotchas, and decisions from ongoing work. Newest first.
 
+## Zero-dependency build (post-1.1.0)
+
+Dropped esbuild — the package's only devDependency — after Socket showed **27
+deps** for `@budhash/zap-sh` (all esbuild's per-platform binaries) vs **1** for
+the sibling `@budhash/confix`. The *published* package always had zero **runtime**
+deps; this also removes the dev/build graph, matching confix/gomanize (both ship
+hand-written/committed ESM+CJS with no bundler). `scripts/build.mjs` now emits
+`dist/index.mjs` + `dist/index.cjs` + `docs/zap-sh.js` from the single authored
+`src/index.js` with templates inlined, using **pure Node** string ops: strip the
+templates' `export`, drop the `import` line, and for CJS turn `export function`
+→ `function` and `export default {…}` → `module.exports = {…}`. This works only
+because `src/index.js` keeps a disciplined shape (top-level `export function`s +
+one `export default {…}`; no other export forms). Verified byte-identical:
+conformance 18, differential 288, CJS require + ESM import + browser bundle all
+pass. The M3/M4 notes below that mention esbuild are historical.
+
 ## Release review (staging toward 1.1.0)
 
 Comprehensive pre-release review of both sh and js (two adversarial review
