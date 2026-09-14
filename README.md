@@ -69,9 +69,10 @@ zap-sh generates bash scripts from templates, similar to how cookiecutter works 
 ## Quick Start
 
 ```bash
-# Install zap-sh
-curl -Lo ~/.local/bin/zap-sh https://raw.githubusercontent.com/budhash/zap-sh/main/zap-sh
-chmod +x ~/.local/bin/zap-sh
+# Install zap-sh (Homebrew)
+brew install budhash/tools/zap-sh
+# ...or download the script directly:
+# curl -Lo ~/.local/bin/zap-sh https://raw.githubusercontent.com/budhash/zap-sh/main/zap-sh && chmod +x ~/.local/bin/zap-sh
 
 # Create your first script (templates auto-download on first use)
 zap-sh init -w
@@ -102,7 +103,11 @@ curl -sL https://raw.githubusercontent.com/budhash/zap-sh/main/zap-sh | \
 ## Installation
 
 ```bash
-# User installation (recommended)
+# Homebrew (recommended)
+brew install budhash/tools/zap-sh
+# or: brew tap budhash/tools && brew install zap-sh
+
+# User installation
 curl -Lo ~/.local/bin/zap-sh https://raw.githubusercontent.com/budhash/zap-sh/main/zap-sh
 chmod +x ~/.local/bin/zap-sh
 
@@ -111,8 +116,8 @@ sudo curl -Lo /usr/local/bin/zap-sh https://raw.githubusercontent.com/budhash/za
 sudo chmod +x /usr/local/bin/zap-sh
 
 # Verify installation
-zap-sh --version
-zap-sh --help
+zap-sh -v
+zap-sh -h
 ```
 
 ## How It Works
@@ -628,6 +633,13 @@ MIT License. See [LICENSE](LICENSE) file for details.
 Generated scripts inherit their license from the template used (configurable via `--license` option or wizard).
 
 ## Changelog
+
+### Unreleased
+
+- Homebrew tap support: `brew install budhash/tools/zap-sh`. Each `v*` tag now
+  generates `Formula/zap-sh.rb` and pushes it to
+  [budhash/homebrew-tools](https://github.com/budhash/homebrew-tools) (non-fatal;
+  the GitHub release and npm publish are unaffected if the tap push fails).
 
 ### v1.1.1
 
