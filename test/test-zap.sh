@@ -178,8 +178,14 @@ test_basic_functionality() {
   
   assert_ok "./$ZAP_SCRIPT" -h "shows help"
   assert_ok "./$ZAP_SCRIPT" -v "shows version"
+  assert_ok "./$ZAP_SCRIPT" --help "shows help (--help alias)"
+  assert_ok "./$ZAP_SCRIPT" --version "shows version (--version alias)"
   assert_fail "./$ZAP_SCRIPT" "fails without command"
-  
+
+  # Long aliases produce the same output as their short forms
+  assert_eq "$(./$ZAP_SCRIPT -v 2>&1)" "$(./$ZAP_SCRIPT --version 2>&1)" "--version matches -v"
+  assert_eq "$(./$ZAP_SCRIPT -h 2>&1)" "$(./$ZAP_SCRIPT --help 2>&1)" "--help matches -h"
+
   echo
 }
 

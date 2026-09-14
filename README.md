@@ -634,6 +634,11 @@ Generated scripts inherit their license from the template used (configurable via
 
 ## Changelog
 
+### v1.1.3
+
+- Accept `--help` and `--version` as aliases for `-h`/`-v` (bash tool only; the
+  `@budhash/zap-sh` npm package is unchanged and stays at 1.1.2).
+
 ### v1.1.2
 
 - Homebrew tap support: `brew install budhash/tools/zap-sh`. Each `v*` tag now
