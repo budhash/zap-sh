@@ -634,7 +634,7 @@ Generated scripts inherit their license from the template used (configurable via
 
 ## Changelog
 
-### Unreleased
+### v1.1.2
 
 - Homebrew tap support: `brew install budhash/tools/zap-sh`. Each `v*` tag now
   generates `Formula/zap-sh.rb` and pushes it to
