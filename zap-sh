@@ -6,7 +6,7 @@
 # Zap eliminates bash script boilerplate with smart templates, auto-generation, and reusable components
 # --------------------------------------------------------------------
 # AUTHOR:  Copyright (C) 2025 Budha <budhash@gmail.com>
-# VERSION: 1.1.2
+# VERSION: 1.1.3
 # LICENSE: MIT
 # --------------------------------------------------------------------
 # __TEMPLATE__: https://github.com/budhash/zap-sh/blob/main/templates/basic.sh
@@ -105,6 +105,12 @@ readonly _ZAP_REMOTE_VERSION="version.txt"
 _main() {
   local _opt _help=false _version=false
   local OPTIND=1 OPTERR=1
+
+  # Long-option aliases for the global flags (Bash 3.2 getopts is short-only).
+  case "${1:-}" in
+    --help) _help; exit 0;;
+    --version) _version; exit 0;;
+  esac
 
   while getopts "hv" _opt; do
     case $_opt in
@@ -1169,8 +1175,8 @@ COMMANDS:
     upgrade           Update $__NAME binary and templates
 
 OPTIONS:
-    -h                Show this help
-    -v                Show version
+    -h, --help        Show this help
+    -v, --version     Show version
 
 INIT COMMAND:
     Quick Generation:
